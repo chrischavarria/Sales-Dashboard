@@ -188,6 +188,15 @@ function money(value) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
 }
 
+function compactMoney(value) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value || 0);
+}
+
 function number(value) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0);
 }
@@ -571,21 +580,32 @@ function resizeCanvas(canvas) {
   const ratio = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * ratio;
-  canvas.height = Number(canvas.getAttribute("height")) * ratio;
+  canvas.height = canvas.clientHeight * ratio;
   const ctx = canvas.getContext("2d");
   ctx.scale(ratio, ratio);
-  return { ctx, width: rect.width, height: Number(canvas.getAttribute("height")) };
+  return { ctx, width: rect.width, height: canvas.clientHeight };
+}
+
+function fitText(ctx, text, maxWidth) {
+  const value = String(text || "");
+  if (ctx.measureText(value).width <= maxWidth) return value;
+  let trimmed = value;
+  while (trimmed.length > 3 && ctx.measureText(`${trimmed}...`).width > maxWidth) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return `${trimmed}...`;
 }
 
 function drawBarChart(canvas, items, valueKey, color) {
+  const chartItems = items.slice(0, 12);
+  canvas.style.height = `${Math.max(260, chartItems.length * 38 + 44)}px`;
   const { ctx, width, height } = resizeCanvas(canvas);
   ctx.clearRect(0, 0, width, height);
-  const chartItems = items.slice(0, 8);
   const max = Math.max(...chartItems.map((item) => item[valueKey]), 1);
-  const left = 116;
-  const right = 16;
-  const top = 14;
-  const rowHeight = (height - top - 22) / Math.max(chartItems.length, 1);
+  const left = Math.min(180, Math.max(108, width * 0.34));
+  const right = 14;
+  const top = 18;
+  const rowHeight = Math.max(32, (height - top - 18) / Math.max(chartItems.length, 1));
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "middle";
@@ -598,13 +618,26 @@ function drawBarChart(canvas, items, valueKey, color) {
 
   chartItems.forEach((item, index) => {
     const y = top + index * rowHeight + rowHeight / 2;
-    const barWidth = ((width - left - right) * item[valueKey]) / max;
+    const label = fitText(ctx, item.name, left - 12);
+    const valueLabel = compactMoney(item[valueKey]);
+    const valueWidth = ctx.measureText(valueLabel).width;
+    const barArea = Math.max(80, width - left - right - valueWidth - 12);
+    const barWidth = Math.max(3, (barArea * item[valueKey]) / max);
     ctx.fillStyle = "#64717e";
-    ctx.fillText(item.name.slice(0, 18), 0, y);
+    ctx.fillText(label, 0, y);
     ctx.fillStyle = color;
     ctx.fillRect(left, y - 10, barWidth, 20);
-    ctx.fillStyle = "#182027";
-    ctx.fillText(money(item[valueKey]), left + barWidth + 8, y);
+
+    const outsideX = left + barWidth + 8;
+    if (outsideX + valueWidth <= width - right) {
+      ctx.fillStyle = "#182027";
+      ctx.fillText(valueLabel, outsideX, y);
+    } else {
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "right";
+      ctx.fillText(valueLabel, left + barWidth - 6, y);
+      ctx.textAlign = "left";
+    }
   });
 }
 
@@ -615,9 +648,9 @@ function renderCharts(rows) {
     .map((item) => ({ ...item, commission: commissionForRows(item.rows) }))
     .sort((a, b) => b.commission - a.commission);
 
-  els.brandChartNote.textContent = `${brandItems.length} shown`;
-  els.clinicChartNote.textContent = `${clinicItems.length} shown`;
-  els.repChartNote.textContent = `${repItems.length} shown`;
+  els.brandChartNote.textContent = brandItems.length > 12 ? `Top 12 of ${brandItems.length}` : `${brandItems.length} shown`;
+  els.clinicChartNote.textContent = clinicItems.length > 12 ? `Top 12 of ${clinicItems.length}` : `${clinicItems.length} shown`;
+  els.repChartNote.textContent = repItems.length > 12 ? `Top 12 of ${repItems.length}` : `${repItems.length} shown`;
   drawBarChart(els.brandChart, brandItems, "revenue", "#287a74");
   drawBarChart(els.clinicChart, clinicItems, "revenue", "#486fa7");
   drawBarChart(els.repChart, repItems, "commission", "#b98516");
