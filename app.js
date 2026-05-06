@@ -54,8 +54,10 @@ const els = {
   totalQuantity: document.querySelector("#totalQuantity"),
   totalReplacements: document.querySelector("#totalReplacements"),
   brandChart: document.querySelector("#brandChart"),
+  clinicChart: document.querySelector("#clinicChart"),
   repChart: document.querySelector("#repChart"),
   brandChartNote: document.querySelector("#brandChartNote"),
+  clinicChartNote: document.querySelector("#clinicChartNote"),
   repChartNote: document.querySelector("#repChartNote"),
   brandTable: document.querySelector("#brandTable"),
   clinicTable: document.querySelector("#clinicTable"),
@@ -597,13 +599,16 @@ function drawBarChart(canvas, items, valueKey, color) {
 
 function renderCharts(rows) {
   const brandItems = groupRows(rows.filter((row) => row.brandId !== NO_BRAND), (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
+  const clinicItems = groupRows(rows.filter((row) => row.clinicId !== NO_CLINIC), (row) => getClinic(row.clinicId).name).sort((a, b) => b.revenue - a.revenue);
   const repItems = groupRows(rows, (row) => getRep(row.repId).name)
     .map((item) => ({ ...item, commission: commissionForRows(item.rows) }))
     .sort((a, b) => b.commission - a.commission);
 
   els.brandChartNote.textContent = `${brandItems.length} shown`;
+  els.clinicChartNote.textContent = `${clinicItems.length} shown`;
   els.repChartNote.textContent = `${repItems.length} shown`;
   drawBarChart(els.brandChart, brandItems, "revenue", "#287a74");
+  drawBarChart(els.clinicChart, clinicItems, "revenue", "#486fa7");
   drawBarChart(els.repChart, repItems, "commission", "#b98516");
 }
 
