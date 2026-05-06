@@ -46,13 +46,21 @@
 
           <div class="field-grid">
             <label>
-              Brand / clinic group
+              Brand contract
               <select id="brandSelect" name="brandSelect"></select>
             </label>
+            <label>
+              Clinic account
+              <select id="clinicSelect" name="clinicSelect"></select>
+            </label>
+          </div>
+
+          <div class="field-grid">
             <label>
               Sales rep
               <select id="repSelect" name="repSelect"></select>
             </label>
+            <span></span>
           </div>
 
           <label>
@@ -86,20 +94,37 @@
         <form id="brandForm" class="panel compact">
           <div class="panel-heading">
             <h2>Brands</h2>
-            <span>Groups</span>
+            <span>Products</span>
           </div>
-          <div class="field-grid three">
-            <label>
-              Name
-              <input id="brandName" type="text" placeholder="Rose MedSpa">
-            </label>
-            <label>
-              Rep
-              <select id="brandRep"></select>
-            </label>
-            <button type="submit">Add Brand</button>
-          </div>
+          <label>
+            Brand name
+            <input id="brandName" type="text" placeholder="Brand name">
+          </label>
+          <label>
+            Sales rep
+            <select id="brandRep"></select>
+          </label>
+          <button type="submit">Add Brand</button>
+          <p id="brandStatus" class="status" role="status"></p>
           <div id="brandList" class="pill-list"></div>
+        </form>
+
+        <form id="clinicForm" class="panel compact">
+          <div class="panel-heading">
+            <h2>Clinics</h2>
+            <span>Accounts</span>
+          </div>
+          <label>
+            Clinic name
+            <input id="clinicName" type="text" placeholder="Rose MedSpa and Wellness">
+          </label>
+          <label>
+            Sales rep
+            <select id="clinicRep"></select>
+          </label>
+          <button type="submit">Add Clinic</button>
+          <p id="clinicStatus" class="status" role="status"></p>
+          <div id="clinicList" class="pill-list"></div>
         </form>
       </section>
 
@@ -123,6 +148,12 @@
             Brand
             <select id="filterBrand">
               <option value="all">All brands</option>
+            </select>
+          </label>
+          <label>
+            Clinic
+            <select id="filterClinic">
+              <option value="all">All clinics</option>
             </select>
           </label>
           <label>
@@ -187,7 +218,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Brand</th>
+                    <th>Type</th>
                     <th>Quantity</th>
                     <th>Revenue</th>
                     <th>Shipping</th>
@@ -199,6 +230,30 @@
             </div>
           </section>
 
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Clinic Detail</h2>
+              <span>Separate clinic metrics</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Clinic</th>
+                    <th>Brand</th>
+                    <th>Quantity</th>
+                    <th>Revenue</th>
+                    <th>Shipping</th>
+                    <th>Replacements</th>
+                  </tr>
+                </thead>
+                <tbody id="clinicTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="chart-grid">
           <section class="table-panel">
             <div class="panel-heading">
               <h2>Rep Detail</h2>
@@ -232,6 +287,7 @@
                 <tr>
                   <th>Drug Name</th>
                   <th>Brand</th>
+                  <th>Clinic</th>
                   <th>Rep</th>
                   <th>Quantity</th>
                   <th>Revenue</th>
@@ -256,6 +312,7 @@
                   <th>Report</th>
                   <th>Date Range</th>
                   <th>Brand</th>
+                  <th>Clinic</th>
                   <th>Rep</th>
                   <th>Revenue</th>
                   <th>Shipping</th>

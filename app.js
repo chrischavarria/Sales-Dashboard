@@ -1,4 +1,7 @@
 const STORE_KEY = "pharmacy-sales-dashboard-v1";
+const AUTO = "auto";
+const NO_BRAND = "none";
+const NO_CLINIC = "none";
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841317054095
@@ -22,6 +25,7 @@ const els = {
   startDate: document.querySelector("#startDate"),
   endDate: document.querySelector("#endDate"),
   brandSelect: document.querySelector("#brandSelect"),
+  clinicSelect: document.querySelector("#clinicSelect"),
   repSelect: document.querySelector("#repSelect"),
   fileInput: document.querySelector("#fileInput"),
   uploadStatus: document.querySelector("#uploadStatus"),
@@ -30,11 +34,18 @@ const els = {
   repList: document.querySelector("#repList"),
   brandName: document.querySelector("#brandName"),
   brandRep: document.querySelector("#brandRep"),
+  brandStatus: document.querySelector("#brandStatus"),
   brandList: document.querySelector("#brandList"),
+  clinicForm: document.querySelector("#clinicForm"),
+  clinicName: document.querySelector("#clinicName"),
+  clinicRep: document.querySelector("#clinicRep"),
+  clinicStatus: document.querySelector("#clinicStatus"),
+  clinicList: document.querySelector("#clinicList"),
   viewFilter: document.querySelector("#viewFilter"),
   filterStart: document.querySelector("#filterStart"),
   filterEnd: document.querySelector("#filterEnd"),
   filterBrand: document.querySelector("#filterBrand"),
+  filterClinic: document.querySelector("#filterClinic"),
   filterRep: document.querySelector("#filterRep"),
   totalRevenue: document.querySelector("#totalRevenue"),
   totalShipping: document.querySelector("#totalShipping"),
@@ -47,6 +58,7 @@ const els = {
   brandChartNote: document.querySelector("#brandChartNote"),
   repChartNote: document.querySelector("#repChartNote"),
   brandTable: document.querySelector("#brandTable"),
+  clinicTable: document.querySelector("#clinicTable"),
   repTable: document.querySelector("#repTable"),
   drugTable: document.querySelector("#drugTable"),
   historyTable: document.querySelector("#historyTable"),
@@ -55,19 +67,109 @@ const els = {
 };
 
 function loadState() {
+  const unassignedRep = { id: crypto.randomUUID(), name: "Unassigned", rate: 0 };
+  const unassignedBrand = { id: crypto.randomUUID(), name: "Unassigned", repId: unassignedRep.id };
+  const unassignedClinic = {
+    id: crypto.randomUUID(),
+    name: "Unassigned",
+    repId: unassignedRep.id,
+  };
   const fallback = {
-    reps: [{ id: crypto.randomUUID(), name: "Unassigned", rate: 0 }],
-    brands: [{ id: crypto.randomUUID(), name: "Unassigned", repId: null }],
+    reps: [unassignedRep],
+    brands: [unassignedBrand],
+    clinics: [unassignedClinic],
     reports: [],
   };
 
   try {
     const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
     if (!parsed || !Array.isArray(parsed.reports)) return fallback;
+    const reps = parsed.reps?.length ? parsed.reps : fallback.reps;
+    const brands = parsed.brands?.length
+      ? parsed.brands.map((brand) => ({
+          id: brand.id || crypto.randomUUID(),
+          name: brand.name || "Unassigned",
+          repId: reps.some((rep) => rep.id === brand.repId) ? brand.repId : reps[0].id,
+        }))
+      : fallback.brands;
+    let clinics = parsed.clinics?.length ? parsed.clinics : [];
+
+    if (!clinics.length) {
+      parsed.brands?.forEach((brand) => {
+        (brand.clinics || []).forEach((clinicName) => {
+          clinics.push({ id: crypto.randomUUID(), name: clinicName, repId: brand.repId || reps[0].id });
+        });
+      });
+    }
+
+    if (!clinics.length) clinics = [{ id: crypto.randomUUID(), name: "Unassigned", repId: reps[0].id }];
+    clinics = clinics.map((clinic) => ({
+      id: clinic.id || crypto.randomUUID(),
+      name: clinic.name || "Unassigned",
+      repId: reps.some((rep) => rep.id === clinic.repId) ? clinic.repId : reps[0].id,
+    }));
+
+    const findBrand = (practiceName) => {
+      const normalizedPractice = normalizeKey(practiceName);
+      return (
+        brands.find((brand) => normalizeKey(brand.name) === normalizedPractice) ||
+        brands.find((brand) => normalizedPractice.includes(normalizeKey(brand.name)) || normalizeKey(brand.name).includes(normalizedPractice))
+      );
+    };
+    const findClinic = (practiceName) => {
+      const normalizedPractice = normalizeKey(practiceName);
+      return (
+        clinics.find((clinic) => normalizeKey(clinic.name) === normalizedPractice) ||
+        clinics.find((clinic) => normalizedPractice.includes(normalizeKey(clinic.name)) || normalizeKey(clinic.name).includes(normalizedPractice))
+      );
+    };
+    const reports = parsed.reports.map((report) => {
+      const nextReport = {
+        ...report,
+        clinicId: report.clinicId || "auto",
+        rows: (report.rows || []).map((row) => ({ ...row, clinicId: row.clinicId || "auto" })),
+      };
+      nextReport.rows.forEach((row) => {
+        if (row.clinicId && row.clinicId !== AUTO && row.clinicId !== NO_CLINIC) {
+          const clinic = clinics.find((item) => item.id === row.clinicId);
+          row.brandId = NO_BRAND;
+          row.repId = clinic?.repId || row.repId || reps[0].id;
+          return;
+        }
+        if (row.brandId && row.brandId !== AUTO && row.brandId !== NO_BRAND) {
+          const brand = brands.find((item) => item.id === row.brandId);
+          row.clinicId = NO_CLINIC;
+          row.repId = brand?.repId || row.repId || reps[0].id;
+          return;
+        }
+        const brand = findBrand(row.practiceName);
+        const clinic = findClinic(row.practiceName);
+        if (brand && !clinic) {
+          row.brandId = brand.id;
+          row.clinicId = NO_CLINIC;
+          row.repId = brand.repId;
+        } else if (clinic) {
+          row.brandId = NO_BRAND;
+          row.clinicId = clinic.id;
+          row.repId = clinic.repId;
+        } else {
+          row.brandId = row.brandId && row.brandId !== AUTO ? row.brandId : NO_BRAND;
+          row.clinicId = row.clinicId && row.clinicId !== AUTO ? row.clinicId : NO_CLINIC;
+          row.repId = row.repId || reps[0].id;
+        }
+      });
+      const firstRow = nextReport.rows[0];
+      nextReport.clinicId = firstRow?.clinicId || nextReport.clinicId || NO_CLINIC;
+      nextReport.brandId = firstRow?.brandId || nextReport.brandId || NO_BRAND;
+      nextReport.repId = firstRow?.repId || nextReport.repId || reps[0].id;
+      return nextReport;
+    });
+
     return {
-      reps: parsed.reps?.length ? parsed.reps : fallback.reps,
-      brands: parsed.brands?.length ? parsed.brands : fallback.brands,
-      reports: parsed.reports,
+      reps,
+      brands,
+      clinics,
+      reports,
     };
   } catch {
     return fallback;
@@ -188,6 +290,7 @@ function normalizeRows(rows, report) {
       startDate: report.startDate,
       endDate: report.endDate,
       brandId: report.brandId,
+      clinicId: report.clinicId,
       repId: report.repId,
       practiceName: String(row[practiceKey] || "").trim() || "Unknown clinic",
       quantity: parseAmount(row[quantityKey]),
@@ -206,7 +309,29 @@ function getRep(id) {
 }
 
 function getBrand(id) {
+  if (id === NO_BRAND || id === AUTO) return { id: NO_BRAND, name: "No brand", repId: state.reps[0].id };
   return state.brands.find((brand) => brand.id === id) || state.brands[0];
+}
+
+function getClinic(id) {
+  if (id === NO_CLINIC || id === AUTO) return { id: NO_CLINIC, name: "No clinic", repId: state.reps[0].id };
+  return state.clinics.find((clinic) => clinic.id === id) || state.clinics[0];
+}
+
+function matchBrandByPractice(practiceName) {
+  const normalizedPractice = normalizeKey(practiceName);
+  return (
+    state.brands.find((brand) => normalizeKey(brand.name) === normalizedPractice) ||
+    state.brands.find((brand) => normalizedPractice.includes(normalizeKey(brand.name)) || normalizeKey(brand.name).includes(normalizedPractice))
+  );
+}
+
+function matchClinicByPractice(practiceName) {
+  const normalizedPractice = normalizeKey(practiceName);
+  return (
+    state.clinics.find((clinic) => normalizeKey(clinic.name) === normalizedPractice) ||
+    state.clinics.find((clinic) => normalizedPractice.includes(normalizeKey(clinic.name)) || normalizeKey(clinic.name).includes(normalizedPractice))
+  );
 }
 
 function rowsForFilters() {
@@ -214,6 +339,7 @@ function rowsForFilters() {
   const start = els.filterStart.value;
   const end = els.filterEnd.value;
   const brandId = els.filterBrand.value;
+  const clinicId = els.filterClinic.value;
   const repId = els.filterRep.value;
 
   return state.reports.flatMap((report) => report.rows).filter((row) => {
@@ -221,6 +347,7 @@ function rowsForFilters() {
     if (start && row.endDate < start) return false;
     if (end && row.startDate > end) return false;
     if (brandId !== "all" && row.brandId !== brandId) return false;
+    if (clinicId !== "all" && row.clinicId !== clinicId) return false;
     if (repId !== "all" && row.repId !== repId) return false;
     return true;
   });
@@ -254,20 +381,49 @@ function groupRows(rows, keyFn) {
   return [...map.entries()].map(([name, totals]) => ({ name, ...totals }));
 }
 
+function restoreSelect(select, value, fallback) {
+  select.value = [...select.options].some((option) => option.value === value) ? value : fallback;
+}
+
 function renderOptions() {
+  const current = {
+    repSelect: els.repSelect.value,
+    brandSelect: els.brandSelect.value,
+    clinicSelect: els.clinicSelect.value,
+    clinicRep: els.clinicRep.value,
+    brandRep: els.brandRep.value,
+    filterRep: els.filterRep.value,
+    filterBrand: els.filterBrand.value,
+    filterClinic: els.filterClinic.value,
+    viewFilter: els.viewFilter.value,
+  };
   const repOptions = state.reps
     .map((rep) => `<option value="${rep.id}">${escapeHtml(rep.name)} (${number(rep.rate)}%)</option>`)
     .join("");
   const brandOptions = state.brands.map((brand) => `<option value="${brand.id}">${escapeHtml(brand.name)}</option>`).join("");
+  const clinicOptions = state.clinics.map((clinic) => `<option value="${clinic.id}">${escapeHtml(clinic.name)}</option>`).join("");
 
   els.repSelect.innerHTML = repOptions;
+  els.clinicRep.innerHTML = repOptions;
   els.brandRep.innerHTML = repOptions;
-  els.brandSelect.innerHTML = brandOptions;
+  els.brandSelect.innerHTML = `<option value="${AUTO}">Auto-match brand</option><option value="${NO_BRAND}">No brand</option>${brandOptions}`;
+  els.clinicSelect.innerHTML = `<option value="${AUTO}">Auto-match clinic</option><option value="${NO_CLINIC}">No clinic</option>${clinicOptions}`;
   els.filterRep.innerHTML = `<option value="all">All reps</option>${repOptions}`;
   els.filterBrand.innerHTML = `<option value="all">All brands</option>${brandOptions}`;
+  els.filterClinic.innerHTML = `<option value="all">All clinics</option>${clinicOptions}`;
   els.viewFilter.innerHTML = `<option value="all">All uploads</option>${state.reports
     .map((report) => `<option value="${report.id}">${report.name}</option>`)
     .join("")}`;
+
+  restoreSelect(els.repSelect, current.repSelect, state.reps[0].id);
+  restoreSelect(els.clinicRep, current.clinicRep, state.reps[0].id);
+  restoreSelect(els.brandRep, current.brandRep, state.reps[0].id);
+  restoreSelect(els.brandSelect, current.brandSelect, AUTO);
+  restoreSelect(els.clinicSelect, current.clinicSelect, AUTO);
+  restoreSelect(els.filterRep, current.filterRep, "all");
+  restoreSelect(els.filterBrand, current.filterBrand, "all");
+  restoreSelect(els.filterClinic, current.filterClinic, "all");
+  restoreSelect(els.viewFilter, current.viewFilter, "all");
 }
 
 function renderLists() {
@@ -279,9 +435,13 @@ function renderLists() {
     .join("");
 
   els.brandList.innerHTML = state.brands
-    .map((brand) => {
-      const rep = getRep(brand.repId);
-      return `<span class="pill">${escapeHtml(brand.name)} · ${escapeHtml(rep?.name || "Unassigned")} <button data-delete-brand="${brand.id}" type="button" aria-label="Delete ${escapeHtml(brand.name)}">×</button></span>`;
+    .map((brand) => `<span class="pill">${escapeHtml(brand.name)} · ${escapeHtml(getRep(brand.repId).name)} <button data-delete-brand="${brand.id}" type="button" aria-label="Delete ${escapeHtml(brand.name)}">×</button></span>`)
+    .join("");
+
+  els.clinicList.innerHTML = state.clinics
+    .map((clinic) => {
+      const rep = getRep(clinic.repId);
+      return `<span class="pill">${escapeHtml(clinic.name)} · ${escapeHtml(rep.name)} <button data-delete-clinic="${clinic.id}" type="button" aria-label="Delete ${escapeHtml(clinic.name)}">×</button></span>`;
     })
     .join("");
 }
@@ -299,7 +459,7 @@ function renderMetrics(rows) {
 }
 
 function renderTables(rows) {
-  const brandRows = groupRows(rows, (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
+  const brandRows = groupRows(rows.filter((row) => row.brandId !== NO_BRAND), (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
   els.brandTable.innerHTML = brandRows.length
     ? brandRows
         .map(
@@ -313,6 +473,22 @@ function renderTables(rows) {
         )
         .join("")
     : `<tr><td class="empty" colspan="5">Upload a report to see brand metrics.</td></tr>`;
+
+  const clinicRows = groupRows(rows.filter((row) => row.clinicId !== NO_CLINIC), (row) => getClinic(row.clinicId).name).sort((a, b) => b.revenue - a.revenue);
+  els.clinicTable.innerHTML = clinicRows.length
+    ? clinicRows
+        .map((item) => {
+          return `<tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>Clinic</td>
+            <td class="number">${number(item.quantity)}</td>
+            <td class="number">${money(item.revenue)}</td>
+            <td class="number">${money(item.shipping)}</td>
+            <td class="number">${item.replacements}</td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td class="empty" colspan="6">Upload a report to see clinic metrics.</td></tr>`;
 
   const repRows = groupRows(rows, (row) => getRep(row.repId).name)
     .map((item) => ({ ...item, commission: commissionForRows(item.rows), rate: getRep(item.rows[0]?.repId)?.rate || 0 }))
@@ -332,16 +508,21 @@ function renderTables(rows) {
         .join("")
     : `<tr><td class="empty" colspan="5">Upload a report to see rep metrics.</td></tr>`;
 
-  const drugRows = groupRows(rows, (row) => `${row.drugName}|||${getBrand(row.brandId).name}|||${getRep(row.repId).name}`)
+  const drugRows = groupRows(rows, (row) => {
+    const account = row.brandId !== NO_BRAND ? getBrand(row.brandId).name : getClinic(row.clinicId).name || row.practiceName;
+    const accountType = row.brandId !== NO_BRAND ? "Brand" : "Clinic";
+    return `${row.drugName}|||${accountType}|||${account}|||${getRep(row.repId).name}`;
+  })
     .sort((a, b) => b.revenue - a.revenue);
 
   els.drugTable.innerHTML = drugRows.length
     ? drugRows
         .map((item) => {
-          const [drug, brand, rep] = item.name.split("|||");
+          const [drug, accountType, account, rep] = item.name.split("|||");
           return `<tr>
             <td>${escapeHtml(drug)}</td>
-            <td>${escapeHtml(brand)}</td>
+            <td>${accountType === "Brand" ? escapeHtml(account) : "No brand"}</td>
+            <td>${accountType === "Clinic" ? escapeHtml(account) : "No clinic"}</td>
             <td>${escapeHtml(rep)}</td>
             <td class="number">${number(item.quantity)}</td>
             <td class="number">${money(item.revenue)}</td>
@@ -350,7 +531,7 @@ function renderTables(rows) {
           </tr>`;
         })
         .join("")
-    : `<tr><td class="empty" colspan="7">Upload a report to see drug-level metrics.</td></tr>`;
+    : `<tr><td class="empty" colspan="8">Upload a report to see drug-level metrics.</td></tr>`;
 
   els.historyTable.innerHTML = state.reports.length
     ? state.reports
@@ -361,6 +542,7 @@ function renderTables(rows) {
             <td>${escapeHtml(report.name)}</td>
             <td>${escapeHtml(report.startDate)} to ${escapeHtml(report.endDate)}</td>
             <td>${escapeHtml(getBrand(report.brandId).name)}</td>
+            <td>${escapeHtml(getClinic(report.clinicId).name)}</td>
             <td>${escapeHtml(getRep(report.repId).name)}</td>
             <td class="number">${money(revenue)}</td>
             <td class="number">${money(shipping)}</td>
@@ -369,7 +551,7 @@ function renderTables(rows) {
           </tr>`;
         })
         .join("")
-    : `<tr><td class="empty" colspan="8">No report history yet.</td></tr>`;
+    : `<tr><td class="empty" colspan="9">No report history yet.</td></tr>`;
 }
 
 function resizeCanvas(canvas) {
@@ -414,7 +596,7 @@ function drawBarChart(canvas, items, valueKey, color) {
 }
 
 function renderCharts(rows) {
-  const brandItems = groupRows(rows, (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
+  const brandItems = groupRows(rows.filter((row) => row.brandId !== NO_BRAND), (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
   const repItems = groupRows(rows, (row) => getRep(row.repId).name)
     .map((item) => ({ ...item, commission: commissionForRows(item.rows) }))
     .sort((a, b) => b.commission - a.commission);
@@ -435,9 +617,41 @@ function render() {
   saveState();
 }
 
-function addReport({ name, startDate, endDate, brandId, repId, rows }) {
-  const report = { id: crypto.randomUUID(), name, startDate, endDate, brandId, repId, rows: [] };
+function addReport({ name, startDate, endDate, brandId, clinicId, repId, rows }) {
+  const selectedBrand = brandId !== AUTO && brandId !== NO_BRAND ? getBrand(brandId) : null;
+  const selectedClinic = clinicId !== AUTO && clinicId !== NO_CLINIC ? getClinic(clinicId) : null;
+  const startingBrandId = selectedBrand?.id || NO_BRAND;
+  const startingClinicId = selectedClinic?.id || NO_CLINIC;
+  const startingRepId = selectedBrand?.repId || selectedClinic?.repId || repId;
+  const report = { id: crypto.randomUUID(), name, startDate, endDate, brandId: startingBrandId, clinicId: startingClinicId, repId: startingRepId, rows: [] };
   report.rows = normalizeRows(rows, report);
+  report.rows.forEach((row) => {
+    const brand = selectedBrand || (brandId === AUTO ? matchBrandByPractice(row.practiceName) : null);
+    const clinic = selectedClinic || (clinicId === AUTO ? matchClinicByPractice(row.practiceName) : null);
+
+    if (selectedBrand) {
+      row.brandId = selectedBrand.id;
+      row.clinicId = NO_CLINIC;
+      row.repId = selectedBrand.repId;
+    } else if (selectedClinic || clinic) {
+      const account = selectedClinic || clinic;
+      row.brandId = NO_BRAND;
+      row.clinicId = account.id;
+      row.repId = account.repId;
+    } else if (brand) {
+      row.brandId = brand.id;
+      row.clinicId = NO_CLINIC;
+      row.repId = brand.repId;
+    } else {
+      row.brandId = selectedBrand?.id || NO_BRAND;
+      row.clinicId = selectedClinic?.id || NO_CLINIC;
+      row.repId = selectedBrand?.repId || selectedClinic?.repId || repId;
+    }
+  });
+  const firstRow = report.rows[0];
+  report.clinicId = firstRow?.clinicId || startingClinicId;
+  report.brandId = firstRow?.brandId || startingBrandId;
+  report.repId = firstRow?.repId || startingRepId;
   state.reports.push(report);
 }
 
@@ -453,6 +667,7 @@ els.uploadForm.addEventListener("submit", async (event) => {
       startDate: els.startDate.value,
       endDate: els.endDate.value,
       brandId: els.brandSelect.value,
+      clinicId: els.clinicSelect.value,
       repId: els.repSelect.value,
       rows,
     });
@@ -476,18 +691,39 @@ els.repForm.addEventListener("submit", (event) => {
 els.brandForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = els.brandName.value.trim();
-  if (!name) return;
+  if (!name) {
+    els.brandStatus.textContent = "Enter a brand name first.";
+    return;
+  }
   state.brands.push({ id: crypto.randomUUID(), name, repId: els.brandRep.value });
+  els.brandStatus.textContent = `Added brand ${name}.`;
   els.brandForm.reset();
+  render();
+});
+
+els.clinicForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = els.clinicName.value.trim();
+  if (!name) {
+    els.clinicStatus.textContent = "Enter a clinic name first.";
+    return;
+  }
+  state.clinics.push({ id: crypto.randomUUID(), name, repId: els.clinicRep.value });
+  els.clinicStatus.textContent = `Added clinic ${name}.`;
+  els.clinicForm.reset();
   render();
 });
 
 document.addEventListener("click", (event) => {
   const repId = event.target.dataset?.deleteRep;
   const brandId = event.target.dataset?.deleteBrand;
+  const clinicId = event.target.dataset?.deleteClinic;
 
   if (repId && state.reps.length > 1) {
     state.reps = state.reps.filter((rep) => rep.id !== repId);
+    state.clinics.forEach((clinic) => {
+      if (clinic.repId === repId) clinic.repId = state.reps[0].id;
+    });
     state.reports.forEach((report) => {
       if (report.repId === repId) report.repId = state.reps[0].id;
       report.rows.forEach((row) => {
@@ -499,23 +735,54 @@ document.addEventListener("click", (event) => {
   if (brandId && state.brands.length > 1) {
     state.brands = state.brands.filter((brand) => brand.id !== brandId);
     state.reports.forEach((report) => {
-      if (report.brandId === brandId) report.brandId = state.brands[0].id;
+      if (report.brandId === brandId) report.brandId = NO_BRAND;
       report.rows.forEach((row) => {
-        if (row.brandId === brandId) row.brandId = state.brands[0].id;
+        if (row.brandId === brandId) row.brandId = NO_BRAND;
       });
     });
   }
 
-  if (repId || brandId) render();
+  if (clinicId && state.clinics.length > 1) {
+    state.clinics = state.clinics.filter((clinic) => clinic.id !== clinicId);
+    state.reports.forEach((report) => {
+      if (report.clinicId === clinicId) {
+        report.clinicId = NO_CLINIC;
+        report.repId = state.clinics[0].repId;
+      }
+      report.rows.forEach((row) => {
+        if (row.clinicId === clinicId) {
+          row.clinicId = NO_CLINIC;
+          row.repId = state.clinics[0].repId;
+        }
+      });
+    });
+  }
+
+  if (repId || brandId || clinicId) render();
 });
 
-[els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterRep].forEach((input) => {
+[els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterClinic, els.filterRep].forEach((input) => {
   input.addEventListener("input", render);
 });
 
+els.clinicSelect.addEventListener("input", () => {
+  if (els.clinicSelect.value === AUTO) {
+    return;
+  }
+  const clinic = getClinic(els.clinicSelect.value);
+  if (clinic) {
+    els.brandSelect.value = NO_BRAND;
+    els.repSelect.value = clinic.repId;
+  }
+});
+
 els.brandSelect.addEventListener("input", () => {
+  if (els.brandSelect.value === AUTO) return;
   const brand = getBrand(els.brandSelect.value);
-  if (brand?.repId) els.repSelect.value = brand.repId;
+  if (brand) {
+    els.clinicSelect.value = NO_CLINIC;
+    els.repSelect.value = brand.repId;
+  }
 });
 
 els.sampleBtn.addEventListener("click", () => {
@@ -523,15 +790,21 @@ els.sampleBtn.addEventListener("click", () => {
   if (!state.reps.some((rep) => rep.id === roseRep.id)) state.reps.push(roseRep);
 
   const roseBrand =
-    state.brands.find((brand) => brand.name === "Rose MedSpa and Wellness") ||
-    { id: crypto.randomUUID(), name: "Rose MedSpa and Wellness", repId: roseRep.id };
+    state.brands.find((brand) => brand.name === "Rose") ||
+    { id: crypto.randomUUID(), name: "Rose", repId: roseRep.id };
   if (!state.brands.some((brand) => brand.id === roseBrand.id)) state.brands.push(roseBrand);
+
+  const roseClinic =
+    state.clinics.find((clinic) => clinic.name === "Rose MedSpa and Wellness") ||
+    { id: crypto.randomUUID(), name: "Rose MedSpa and Wellness", repId: roseRep.id };
+  if (!state.clinics.some((clinic) => clinic.id === roseClinic.id)) state.clinics.push(roseClinic);
 
   addReport({
     name: "ROSE REPORT 4.20.26-4.26.26",
     startDate: "2026-04-20",
     endDate: "2026-04-26",
-    brandId: roseBrand.id,
+    brandId: AUTO,
+    clinicId: AUTO,
     repId: roseRep.id,
     rows: parseCsv(sampleCsv),
   });

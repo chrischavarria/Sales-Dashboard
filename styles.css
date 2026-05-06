@@ -27,7 +27,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -68,7 +69,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -76,6 +78,11 @@ select {
   padding: 8px 10px;
   color: var(--ink);
   background: white;
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.35;
 }
 
 .topbar {
@@ -214,7 +221,7 @@ select {
 
 .filters {
   display: grid;
-  grid-template-columns: 1.4fr repeat(4, minmax(120px, 1fr));
+  grid-template-columns: 1.4fr repeat(5, minmax(120px, 1fr));
   gap: 10px;
 }
 
@@ -251,6 +258,10 @@ select {
 .chart-panel,
 .table-panel {
   padding: 16px;
+}
+
+.chart-grid > :only-child {
+  grid-column: 1 / -1;
 }
 
 canvas {
