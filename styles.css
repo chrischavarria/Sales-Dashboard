@@ -68,6 +68,20 @@ label {
   font-weight: 700;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  color: var(--ink);
+}
+
+.check-row input {
+  width: 17px;
+  min-height: 17px;
+  margin: 0;
+}
+
 input,
 select,
 textarea {

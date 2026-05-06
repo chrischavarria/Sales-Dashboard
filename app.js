@@ -34,11 +34,13 @@ const els = {
   repList: document.querySelector("#repList"),
   brandName: document.querySelector("#brandName"),
   brandRep: document.querySelector("#brandRep"),
+  brandNoRep: document.querySelector("#brandNoRep"),
   brandStatus: document.querySelector("#brandStatus"),
   brandList: document.querySelector("#brandList"),
   clinicForm: document.querySelector("#clinicForm"),
   clinicName: document.querySelector("#clinicName"),
   clinicRep: document.querySelector("#clinicRep"),
+  clinicNoRep: document.querySelector("#clinicNoRep"),
   clinicStatus: document.querySelector("#clinicStatus"),
   clinicList: document.querySelector("#clinicList"),
   viewFilter: document.querySelector("#viewFilter"),
@@ -70,11 +72,11 @@ const els = {
 
 function loadState() {
   const unassignedRep = { id: crypto.randomUUID(), name: "Unassigned", rate: 0 };
-  const unassignedBrand = { id: crypto.randomUUID(), name: "Unassigned", repId: unassignedRep.id };
+  const unassignedBrand = { id: crypto.randomUUID(), name: "Unassigned", repId: null };
   const unassignedClinic = {
     id: crypto.randomUUID(),
     name: "Unassigned",
-    repId: unassignedRep.id,
+    repId: null,
   };
   const fallback = {
     reps: [unassignedRep],
@@ -91,7 +93,7 @@ function loadState() {
       ? parsed.brands.map((brand) => ({
           id: brand.id || crypto.randomUUID(),
           name: brand.name || "Unassigned",
-          repId: reps.some((rep) => rep.id === brand.repId) ? brand.repId : reps[0].id,
+          repId: reps.some((rep) => rep.id === brand.repId) ? brand.repId : null,
         }))
       : fallback.brands;
     let clinics = parsed.clinics?.length ? parsed.clinics : [];
@@ -99,16 +101,16 @@ function loadState() {
     if (!clinics.length) {
       parsed.brands?.forEach((brand) => {
         (brand.clinics || []).forEach((clinicName) => {
-          clinics.push({ id: crypto.randomUUID(), name: clinicName, repId: brand.repId || reps[0].id });
+          clinics.push({ id: crypto.randomUUID(), name: clinicName, repId: brand.repId || null });
         });
       });
     }
 
-    if (!clinics.length) clinics = [{ id: crypto.randomUUID(), name: "Unassigned", repId: reps[0].id }];
+    if (!clinics.length) clinics = [{ id: crypto.randomUUID(), name: "Unassigned", repId: null }];
     clinics = clinics.map((clinic) => ({
       id: clinic.id || crypto.randomUUID(),
       name: clinic.name || "Unassigned",
-      repId: reps.some((rep) => rep.id === clinic.repId) ? clinic.repId : reps[0].id,
+      repId: reps.some((rep) => rep.id === clinic.repId) ? clinic.repId : null,
     }));
 
     const findBrand = (practiceName) => {
@@ -135,13 +137,13 @@ function loadState() {
         if (row.clinicId && row.clinicId !== AUTO && row.clinicId !== NO_CLINIC) {
           const clinic = clinics.find((item) => item.id === row.clinicId);
           row.brandId = NO_BRAND;
-          row.repId = clinic?.repId || row.repId || reps[0].id;
+          row.repId = clinic ? clinic.repId : row.repId || null;
           return;
         }
         if (row.brandId && row.brandId !== AUTO && row.brandId !== NO_BRAND) {
           const brand = brands.find((item) => item.id === row.brandId);
           row.clinicId = NO_CLINIC;
-          row.repId = brand?.repId || row.repId || reps[0].id;
+          row.repId = brand ? brand.repId : row.repId || null;
           return;
         }
         const brand = findBrand(row.practiceName);
@@ -157,13 +159,13 @@ function loadState() {
         } else {
           row.brandId = row.brandId && row.brandId !== AUTO ? row.brandId : NO_BRAND;
           row.clinicId = row.clinicId && row.clinicId !== AUTO ? row.clinicId : NO_CLINIC;
-          row.repId = row.repId || reps[0].id;
+          row.repId = row.repId || null;
         }
       });
       const firstRow = nextReport.rows[0];
       nextReport.clinicId = firstRow?.clinicId || nextReport.clinicId || NO_CLINIC;
       nextReport.brandId = firstRow?.brandId || nextReport.brandId || NO_BRAND;
-      nextReport.repId = firstRow?.repId || nextReport.repId || reps[0].id;
+      nextReport.repId = firstRow?.repId || nextReport.repId || null;
       return nextReport;
     });
 
@@ -307,6 +309,7 @@ function normalizeRows(rows, report) {
 }
 
 function getRep(id) {
+  if (!id) return { id: null, name: "No sales rep", rate: 0 };
   return state.reps.find((rep) => rep.id === id) || state.reps[0];
 }
 
@@ -361,6 +364,7 @@ function sum(rows, key) {
 
 function commissionForRows(rows) {
   return rows.reduce((total, row) => {
+    if (!row.repId) return total;
     const rate = getRep(row.repId)?.rate || 0;
     return total + row.revenue * (rate / 100);
   }, 0);
@@ -394,6 +398,8 @@ function renderOptions() {
     clinicSelect: els.clinicSelect.value,
     clinicRep: els.clinicRep.value,
     brandRep: els.brandRep.value,
+    brandNoRep: els.brandNoRep.checked,
+    clinicNoRep: els.clinicNoRep.checked,
     filterRep: els.filterRep.value,
     filterBrand: els.filterBrand.value,
     filterClinic: els.filterClinic.value,
@@ -426,6 +432,10 @@ function renderOptions() {
   restoreSelect(els.filterBrand, current.filterBrand, "all");
   restoreSelect(els.filterClinic, current.filterClinic, "all");
   restoreSelect(els.viewFilter, current.viewFilter, "all");
+  els.brandNoRep.checked = current.brandNoRep;
+  els.clinicNoRep.checked = current.clinicNoRep;
+  els.brandRep.disabled = els.brandNoRep.checked;
+  els.clinicRep.disabled = els.clinicNoRep.checked;
 }
 
 function renderLists() {
@@ -493,6 +503,7 @@ function renderTables(rows) {
     : `<tr><td class="empty" colspan="6">Upload a report to see clinic metrics.</td></tr>`;
 
   const repRows = groupRows(rows, (row) => getRep(row.repId).name)
+    .filter((item) => item.rows.some((row) => row.repId))
     .map((item) => ({ ...item, commission: commissionForRows(item.rows), rate: getRep(item.rows[0]?.repId)?.rate || 0 }))
     .sort((a, b) => b.commission - a.commission);
 
@@ -600,7 +611,7 @@ function drawBarChart(canvas, items, valueKey, color) {
 function renderCharts(rows) {
   const brandItems = groupRows(rows.filter((row) => row.brandId !== NO_BRAND), (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
   const clinicItems = groupRows(rows.filter((row) => row.clinicId !== NO_CLINIC), (row) => getClinic(row.clinicId).name).sort((a, b) => b.revenue - a.revenue);
-  const repItems = groupRows(rows, (row) => getRep(row.repId).name)
+  const repItems = groupRows(rows.filter((row) => row.repId), (row) => getRep(row.repId).name)
     .map((item) => ({ ...item, commission: commissionForRows(item.rows) }))
     .sort((a, b) => b.commission - a.commission);
 
@@ -627,7 +638,7 @@ function addReport({ name, startDate, endDate, brandId, clinicId, repId, rows })
   const selectedClinic = clinicId !== AUTO && clinicId !== NO_CLINIC ? getClinic(clinicId) : null;
   const startingBrandId = selectedBrand?.id || NO_BRAND;
   const startingClinicId = selectedClinic?.id || NO_CLINIC;
-  const startingRepId = selectedBrand?.repId || selectedClinic?.repId || repId;
+  const startingRepId = selectedBrand ? selectedBrand.repId : selectedClinic ? selectedClinic.repId : repId;
   const report = { id: crypto.randomUUID(), name, startDate, endDate, brandId: startingBrandId, clinicId: startingClinicId, repId: startingRepId, rows: [] };
   report.rows = normalizeRows(rows, report);
   report.rows.forEach((row) => {
@@ -650,7 +661,7 @@ function addReport({ name, startDate, endDate, brandId, clinicId, repId, rows })
     } else {
       row.brandId = selectedBrand?.id || NO_BRAND;
       row.clinicId = selectedClinic?.id || NO_CLINIC;
-      row.repId = selectedBrand?.repId || selectedClinic?.repId || repId;
+      row.repId = selectedBrand ? selectedBrand.repId : selectedClinic ? selectedClinic.repId : repId;
     }
   });
   const firstRow = report.rows[0];
@@ -700,8 +711,8 @@ els.brandForm.addEventListener("submit", (event) => {
     els.brandStatus.textContent = "Enter a brand name first.";
     return;
   }
-  state.brands.push({ id: crypto.randomUUID(), name, repId: els.brandRep.value });
-  els.brandStatus.textContent = `Added brand ${name}.`;
+  state.brands.push({ id: crypto.randomUUID(), name, repId: els.brandNoRep.checked ? null : els.brandRep.value });
+  els.brandStatus.textContent = `Added brand ${name}${els.brandNoRep.checked ? " without a sales rep" : ""}.`;
   els.brandForm.reset();
   render();
 });
@@ -713,8 +724,8 @@ els.clinicForm.addEventListener("submit", (event) => {
     els.clinicStatus.textContent = "Enter a clinic name first.";
     return;
   }
-  state.clinics.push({ id: crypto.randomUUID(), name, repId: els.clinicRep.value });
-  els.clinicStatus.textContent = `Added clinic ${name}.`;
+  state.clinics.push({ id: crypto.randomUUID(), name, repId: els.clinicNoRep.checked ? null : els.clinicRep.value });
+  els.clinicStatus.textContent = `Added clinic ${name}${els.clinicNoRep.checked ? " without a sales rep" : ""}.`;
   els.clinicForm.reset();
   render();
 });
@@ -764,6 +775,14 @@ document.addEventListener("click", (event) => {
   }
 
   if (repId || brandId || clinicId) render();
+});
+
+els.brandNoRep.addEventListener("input", () => {
+  els.brandRep.disabled = els.brandNoRep.checked;
+});
+
+els.clinicNoRep.addEventListener("input", () => {
+  els.clinicRep.disabled = els.clinicNoRep.checked;
 });
 
 [els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterClinic, els.filterRep].forEach((input) => {
