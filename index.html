@@ -6,6 +6,8 @@
     <title>Pharmacy Sales Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="supabase-config.js"></script>
     <script defer src="app.js"></script>
   </head>
   <body>
@@ -15,6 +17,7 @@
         <h1>Revenue Dashboard</h1>
       </div>
       <div class="toolbar">
+        <span id="syncStatus" class="sync-status">Local mode</span>
         <button id="sampleBtn" class="ghost" type="button">Load Sample</button>
         <button id="clearBtn" class="danger" type="button">Clear Data</button>
       </div>
@@ -22,6 +25,26 @@
 
     <main class="shell">
       <section class="control-panel" aria-label="Report controls">
+        <form id="authForm" class="panel compact">
+          <div class="panel-heading">
+            <h2>Cloud Access</h2>
+            <span id="authMode">Supabase</span>
+          </div>
+          <label>
+            Email
+            <input id="authEmail" type="email" autocomplete="email" placeholder="manager@example.com">
+          </label>
+          <label>
+            Password
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password">
+          </label>
+          <div class="auth-actions">
+            <button id="signInBtn" type="submit">Sign In</button>
+            <button id="signOutBtn" class="ghost" type="button">Sign Out</button>
+          </div>
+          <p id="authStatus" class="status" role="status"></p>
+        </form>
+
         <form id="uploadForm" class="panel">
           <div class="panel-heading">
             <h2>Upload Report</h2>

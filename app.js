@@ -2,6 +2,7 @@ const STORE_KEY = "pharmacy-sales-dashboard-v1";
 const AUTO = "auto";
 const NO_BRAND = "none";
 const NO_CLINIC = "none";
+const CLOUD_ROW_ID = "main";
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841317054095
@@ -15,7 +16,10 @@ Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1Z
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841308282856
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841338172196`;
 
-const state = loadState();
+let state = loadState();
+let supabaseClient = null;
+let cloudReady = false;
+let saveTimer = null;
 
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
@@ -68,6 +72,13 @@ const els = {
   historyTable: document.querySelector("#historyTable"),
   sampleBtn: document.querySelector("#sampleBtn"),
   clearBtn: document.querySelector("#clearBtn"),
+  authForm: document.querySelector("#authForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  authStatus: document.querySelector("#authStatus"),
+  authMode: document.querySelector("#authMode"),
+  signOutBtn: document.querySelector("#signOutBtn"),
+  syncStatus: document.querySelector("#syncStatus"),
 };
 
 function loadState() {
@@ -180,8 +191,81 @@ function loadState() {
   }
 }
 
+function localStateSnapshot() {
+  return JSON.parse(JSON.stringify(state));
+}
+
 function saveState() {
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (!cloudReady) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await saveCloudState();
+    } catch (error) {
+      setSyncStatus(`Cloud save failed: ${error.message}`);
+    }
+  }, 350);
+}
+
+function configuredForSupabase() {
+  const config = window.SUPABASE_CONFIG || {};
+  return Boolean(config.url && config.anonKey && window.supabase?.createClient);
+}
+
+function setSyncStatus(message) {
+  els.syncStatus.textContent = message;
+}
+
+async function saveCloudState() {
+  if (!supabaseClient || !cloudReady) return;
+  const { error } = await supabaseClient
+    .from("dashboard_state")
+    .upsert({ id: CLOUD_ROW_ID, payload: localStateSnapshot(), updated_at: new Date().toISOString() });
+  if (error) throw error;
+  setSyncStatus("Cloud synced");
+}
+
+async function loadCloudState() {
+  const { data, error } = await supabaseClient.from("dashboard_state").select("payload").eq("id", CLOUD_ROW_ID).maybeSingle();
+  if (error) throw error;
+
+  if (data?.payload) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data.payload));
+    state = loadState();
+  } else {
+    await saveCloudState();
+  }
+}
+
+async function refreshAuthState() {
+  if (!configuredForSupabase()) {
+    els.authMode.textContent = "Not configured";
+    els.authStatus.textContent = "Add your Supabase URL and anon key to supabase-config.js.";
+    setSyncStatus("Local mode");
+    return;
+  }
+
+  const config = window.SUPABASE_CONFIG;
+  supabaseClient = supabaseClient || window.supabase.createClient(config.url, config.anonKey);
+  const { data } = await supabaseClient.auth.getSession();
+  const session = data?.session;
+
+  if (!session) {
+    cloudReady = false;
+    els.authMode.textContent = "Sign in";
+    els.authStatus.textContent = "Sign in to use shared cloud data.";
+    setSyncStatus("Cloud signed out");
+    return;
+  }
+
+  cloudReady = true;
+  els.authMode.textContent = "Signed in";
+  els.authStatus.textContent = session.user.email || "Signed in.";
+  setSyncStatus("Cloud loading");
+  await loadCloudState();
+  setSyncStatus("Cloud synced");
+  render();
 }
 
 function money(value) {
@@ -818,6 +902,37 @@ els.clinicNoRep.addEventListener("input", () => {
   els.clinicRep.disabled = els.clinicNoRep.checked;
 });
 
+els.authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!configuredForSupabase()) {
+    els.authStatus.textContent = "Supabase is not configured yet.";
+    return;
+  }
+
+  supabaseClient = supabaseClient || window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+  els.authStatus.textContent = "Signing in...";
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: els.authEmail.value.trim(),
+    password: els.authPassword.value,
+  });
+
+  if (error) {
+    els.authStatus.textContent = error.message;
+    return;
+  }
+
+  els.authPassword.value = "";
+  await refreshAuthState();
+});
+
+els.signOutBtn.addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  cloudReady = false;
+  setSyncStatus("Cloud signed out");
+  els.authStatus.textContent = "Signed out. Local browser data is still available on this device.";
+});
+
 [els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterClinic, els.filterRep].forEach((input) => {
   input.addEventListener("input", render);
 });
@@ -868,11 +983,21 @@ els.sampleBtn.addEventListener("click", () => {
   render();
 });
 
-els.clearBtn.addEventListener("click", () => {
-  if (!confirm("Clear all saved dashboard data?")) return;
+els.clearBtn.addEventListener("click", async () => {
+  const target = cloudReady ? "shared cloud dashboard data" : "local dashboard data";
+  if (!confirm(`Clear all ${target}?`)) return;
   localStorage.removeItem(STORE_KEY);
-  window.location.reload();
+  state = loadState();
+  render();
+  if (cloudReady) {
+    try {
+      await saveCloudState();
+    } catch (error) {
+      setSyncStatus(`Cloud clear failed: ${error.message}`);
+    }
+  }
 });
 
 window.addEventListener("resize", render);
 render();
+refreshAuthState();
