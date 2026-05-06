@@ -71,7 +71,6 @@ const els = {
   drugTable: document.querySelector("#drugTable"),
   historyTable: document.querySelector("#historyTable"),
   sampleBtn: document.querySelector("#sampleBtn"),
-  clearBtn: document.querySelector("#clearBtn"),
   authForm: document.querySelector("#authForm"),
   authEmail: document.querySelector("#authEmail"),
   authPassword: document.querySelector("#authPassword"),
@@ -981,21 +980,6 @@ els.sampleBtn.addEventListener("click", () => {
     rows: parseCsv(sampleCsv),
   });
   render();
-});
-
-els.clearBtn.addEventListener("click", async () => {
-  const target = cloudReady ? "shared cloud dashboard data" : "local dashboard data";
-  if (!confirm(`Clear all ${target}?`)) return;
-  localStorage.removeItem(STORE_KEY);
-  state = loadState();
-  render();
-  if (cloudReady) {
-    try {
-      await saveCloudState();
-    } catch (error) {
-      setSyncStatus(`Cloud clear failed: ${error.message}`);
-    }
-  }
 });
 
 window.addEventListener("resize", render);
