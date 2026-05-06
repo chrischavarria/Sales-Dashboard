@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pharmacy Sales Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Pharmacy Sales</p>
+        <h1>Revenue Dashboard</h1>
+      </div>
+      <div class="toolbar">
+        <button id="sampleBtn" class="ghost" type="button">Load Sample</button>
+        <button id="clearBtn" class="danger" type="button">Clear Data</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="control-panel" aria-label="Report controls">
+        <form id="uploadForm" class="panel">
+          <div class="panel-heading">
+            <h2>Upload Report</h2>
+            <span>CSV or Excel</span>
+          </div>
+
+          <label>
+            Report name
+            <input id="reportName" name="reportName" type="text" placeholder="ROSE REPORT 4.20.26-4.26.26">
+          </label>
+
+          <div class="field-grid">
+            <label>
+              Start date
+              <input id="startDate" name="startDate" type="date" required>
+            </label>
+            <label>
+              End date
+              <input id="endDate" name="endDate" type="date" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Brand / clinic group
+              <select id="brandSelect" name="brandSelect"></select>
+            </label>
+            <label>
+              Sales rep
+              <select id="repSelect" name="repSelect"></select>
+            </label>
+          </div>
+
+          <label>
+            Upload file
+            <input id="fileInput" name="fileInput" type="file" accept=".csv,.xlsx,.xls" required>
+          </label>
+
+          <button type="submit">Import Report</button>
+          <p id="uploadStatus" class="status" role="status"></p>
+        </form>
+
+        <form id="repForm" class="panel compact">
+          <div class="panel-heading">
+            <h2>Sales Reps</h2>
+            <span>Commission</span>
+          </div>
+          <div class="field-grid three">
+            <label>
+              Name
+              <input id="repName" type="text" placeholder="Rep name">
+            </label>
+            <label>
+              %
+              <input id="repRate" type="number" min="0" step="0.01" placeholder="10">
+            </label>
+            <button type="submit">Add Rep</button>
+          </div>
+          <div id="repList" class="pill-list"></div>
+        </form>
+
+        <form id="brandForm" class="panel compact">
+          <div class="panel-heading">
+            <h2>Brands</h2>
+            <span>Groups</span>
+          </div>
+          <div class="field-grid three">
+            <label>
+              Name
+              <input id="brandName" type="text" placeholder="Rose MedSpa">
+            </label>
+            <label>
+              Rep
+              <select id="brandRep"></select>
+            </label>
+            <button type="submit">Add Brand</button>
+          </div>
+          <div id="brandList" class="pill-list"></div>
+        </form>
+      </section>
+
+      <section class="dashboard" aria-label="Dashboard">
+        <div class="filters">
+          <label>
+            View
+            <select id="viewFilter">
+              <option value="all">All uploads</option>
+            </select>
+          </label>
+          <label>
+            From
+            <input id="filterStart" type="date">
+          </label>
+          <label>
+            To
+            <input id="filterEnd" type="date">
+          </label>
+          <label>
+            Brand
+            <select id="filterBrand">
+              <option value="all">All brands</option>
+            </select>
+          </label>
+          <label>
+            Rep
+            <select id="filterRep">
+              <option value="all">All reps</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric">
+            <span>Revenue</span>
+            <strong id="totalRevenue">$0</strong>
+          </article>
+          <article class="metric">
+            <span>Shipping</span>
+            <strong id="totalShipping">$0</strong>
+          </article>
+          <article class="metric">
+            <span>Net Before Commission</span>
+            <strong id="netRevenue">$0</strong>
+          </article>
+          <article class="metric">
+            <span>Commission</span>
+            <strong id="totalCommission">$0</strong>
+          </article>
+          <article class="metric">
+            <span>Quantity</span>
+            <strong id="totalQuantity">0</strong>
+          </article>
+          <article class="metric">
+            <span>Replacements</span>
+            <strong id="totalReplacements">0</strong>
+          </article>
+        </div>
+
+        <div class="chart-grid">
+          <section class="chart-panel">
+            <div class="panel-heading">
+              <h2>Revenue by Brand</h2>
+              <span id="brandChartNote"></span>
+            </div>
+            <canvas id="brandChart" height="260"></canvas>
+          </section>
+          <section class="chart-panel">
+            <div class="panel-heading">
+              <h2>Sales Rep Commission</h2>
+              <span id="repChartNote"></span>
+            </div>
+            <canvas id="repChart" height="260"></canvas>
+          </section>
+        </div>
+
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Brand Detail</h2>
+              <span>Separate brand metrics</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Quantity</th>
+                    <th>Revenue</th>
+                    <th>Shipping</th>
+                    <th>Replacements</th>
+                  </tr>
+                </thead>
+                <tbody id="brandTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Rep Detail</h2>
+              <span>Commission tracking</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sales Rep</th>
+                    <th>Rate</th>
+                    <th>Revenue</th>
+                    <th>Commission</th>
+                    <th>Shipping</th>
+                  </tr>
+                </thead>
+                <tbody id="repTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Drug Detail</h2>
+            <span>Prescriptions and quantities</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Drug Name</th>
+                  <th>Brand</th>
+                  <th>Rep</th>
+                  <th>Quantity</th>
+                  <th>Revenue</th>
+                  <th>Shipping</th>
+                  <th>Replacements</th>
+                </tr>
+              </thead>
+              <tbody id="drugTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Report History</h2>
+            <span>Date range tracking</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Report</th>
+                  <th>Date Range</th>
+                  <th>Brand</th>
+                  <th>Rep</th>
+                  <th>Revenue</th>
+                  <th>Shipping</th>
+                  <th>Commission</th>
+                  <th>Rows</th>
+                </tr>
+              </thead>
+              <tbody id="historyTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
