@@ -864,6 +864,12 @@ els.uploadForm.addEventListener("submit", async (event) => {
   }
 });
 
+els.fileInput.addEventListener("change", () => {
+  const file = els.fileInput.files[0];
+  if (!file) return;
+  els.reportName.value = file.name.replace(/\.(csv|xlsx|xls)$/i, "");
+});
+
 els.repForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = els.repName.value.trim();
