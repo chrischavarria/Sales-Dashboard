@@ -317,6 +317,14 @@ canvas {
   border-radius: 8px;
 }
 
+.scroll-table {
+  max-height: 420px;
+}
+
+.scroll-table.tall {
+  max-height: 520px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
