@@ -72,6 +72,7 @@ const els = {
   drugTable: document.querySelector("#drugTable"),
   historyTable: document.querySelector("#historyTable"),
   sampleBtn: document.querySelector("#sampleBtn"),
+  refreshCloudBtn: document.querySelector("#refreshCloudBtn"),
   authForm: document.querySelector("#authForm"),
   authEmail: document.querySelector("#authEmail"),
   authPassword: document.querySelector("#authPassword"),
@@ -217,13 +218,22 @@ function setSyncStatus(message) {
   els.syncStatus.textContent = message;
 }
 
+function syncTimeLabel() {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date());
+}
+
 async function saveCloudState() {
   if (!supabaseClient || !cloudReady) return;
+  setSyncStatus("Cloud saving...");
   const { error } = await supabaseClient
     .from("dashboard_state")
     .upsert({ id: CLOUD_ROW_ID, payload: localStateSnapshot(), updated_at: new Date().toISOString() });
   if (error) throw error;
-  setSyncStatus("Cloud synced");
+  setSyncStatus(`Cloud synced ${syncTimeLabel()}`);
 }
 
 async function loadCloudState() {
@@ -235,6 +245,31 @@ async function loadCloudState() {
     state = loadState();
   } else {
     await saveCloudState();
+  }
+}
+
+async function forceCloudRefresh() {
+  if (!configuredForSupabase()) {
+    setSyncStatus("Cloud not configured");
+    return;
+  }
+
+  supabaseClient = supabaseClient || window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+  const { data } = await supabaseClient.auth.getSession();
+  if (!data?.session) {
+    setSyncStatus("Cloud signed out");
+    els.authStatus.textContent = "Sign in before refreshing cloud data.";
+    return;
+  }
+
+  try {
+    cloudReady = true;
+    setSyncStatus("Cloud loading...");
+    await loadCloudState();
+    render();
+    setSyncStatus(`Cloud loaded ${syncTimeLabel()}`);
+  } catch (error) {
+    setSyncStatus(`Cloud load failed: ${error.message}`);
   }
 }
 
@@ -811,6 +846,7 @@ els.uploadForm.addEventListener("submit", async (event) => {
     els.uploadStatus.textContent = `Imported ${rows.length} rows from ${file.name}.`;
     els.uploadForm.reset();
     render();
+    if (cloudReady) await saveCloudState();
   } catch (error) {
     els.uploadStatus.textContent = error.message;
   }
@@ -955,6 +991,8 @@ els.signOutBtn.addEventListener("click", async () => {
   setSyncStatus("Cloud signed out");
   els.authStatus.textContent = "Signed out. Local browser data is still available on this device.";
 });
+
+els.refreshCloudBtn.addEventListener("click", forceCloudRefresh);
 
 [els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterClinic, els.filterRep].forEach((input) => {
   input.addEventListener("input", render);
