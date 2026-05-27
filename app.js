@@ -226,6 +226,18 @@ function syncTimeLabel() {
   }).format(new Date());
 }
 
+function confirmProtectedDelete(label) {
+  const password = prompt(`Enter password to remove ${label}`);
+  if (password === null) return false;
+
+  if (password !== DELETE_REPORT_PASSWORD) {
+    alert("Incorrect password. Nothing was removed.");
+    return false;
+  }
+
+  return true;
+}
+
 async function saveCloudState() {
   if (!supabaseClient || !cloudReady) return;
   setSyncStatus("Cloud saving...");
@@ -897,13 +909,7 @@ document.addEventListener("click", (event) => {
     const report = state.reports.find((item) => item.id === reportId);
     if (!report) return;
 
-    const password = prompt(`Enter password to remove ${report.name}`);
-    if (password === null) return;
-
-    if (password !== DELETE_REPORT_PASSWORD) {
-      alert("Incorrect password. Report was not removed.");
-      return;
-    }
+    if (!confirmProtectedDelete(report.name)) return;
 
     state.reports = state.reports.filter((item) => item.id !== reportId);
     if (els.viewFilter.value === reportId) els.viewFilter.value = "all";
@@ -925,6 +931,9 @@ document.addEventListener("click", (event) => {
   }
 
   if (brandId && state.brands.length > 1) {
+    const brand = state.brands.find((item) => item.id === brandId);
+    if (!brand || !confirmProtectedDelete(brand.name)) return;
+
     state.brands = state.brands.filter((brand) => brand.id !== brandId);
     state.reports.forEach((report) => {
       if (report.brandId === brandId) report.brandId = NO_BRAND;
@@ -935,6 +944,9 @@ document.addEventListener("click", (event) => {
   }
 
   if (clinicId && state.clinics.length > 1) {
+    const clinic = state.clinics.find((item) => item.id === clinicId);
+    if (!clinic || !confirmProtectedDelete(clinic.name)) return;
+
     state.clinics = state.clinics.filter((clinic) => clinic.id !== clinicId);
     state.reports.forEach((report) => {
       if (report.clinicId === clinicId) {

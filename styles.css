@@ -234,6 +234,12 @@ textarea {
   gap: 8px;
 }
 
+.scroll-list {
+  max-height: 190px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
