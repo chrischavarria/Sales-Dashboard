@@ -3,6 +3,7 @@ const AUTO = "auto";
 const NO_BRAND = "none";
 const NO_CLINIC = "none";
 const CLOUD_ROW_ID = "main";
+const DELETE_REPORT_PASSWORD = "2727Baseline!";
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841317054095
@@ -363,7 +364,7 @@ async function readFile(file) {
 }
 
 function normalizeRows(rows, report) {
-  return rows.map((row) => {
+  return rows.flatMap((row) => {
     const quantityKey = findColumn(row, ["Quantity", "Qty"]);
     const drugKey = findColumn(row, ["Drug Name", "Medication", "Product"]);
     const priceKey = findColumn(row, ["Patient Price", "Sales Revenue", "Revenue", "Price"]);
@@ -378,8 +379,11 @@ function normalizeRows(rows, report) {
     const writtenKey = findColumn(row, ["Written in Reason", "Written Reason", "Reason"]);
     const trackingKey = findColumn(row, ["Tracking Number", "Tracking"]);
     const replacementText = [row[replacementKey], row[writtenKey]].filter(Boolean).join(" ").trim();
+    const drugName = String(row[drugKey] || "").trim();
 
-    return {
+    if (!drugName) return [];
+
+    return [{
       id: crypto.randomUUID(),
       reportId: report.id,
       reportName: report.name,
@@ -390,13 +394,13 @@ function normalizeRows(rows, report) {
       repId: report.repId,
       practiceName: String(row[practiceKey] || "").trim() || "Unknown clinic",
       quantity: parseAmount(row[quantityKey]),
-      drugName: String(row[drugKey] || "").trim() || "Unknown drug",
+      drugName,
       revenue: parseAmount(row[priceKey]),
       shipping: parseAmount(row[shippingKey]),
       replacementText,
       isReplacement: replacementText.length > 0,
       trackingNumber: String(row[trackingKey] || "").trim(),
-    };
+    }];
   });
 }
 
@@ -653,10 +657,11 @@ function renderTables(rows) {
             <td class="number">${money(shipping)}</td>
             <td class="number">${money(commissionForRows(report.rows))}</td>
             <td class="number">${report.rows.length}</td>
+            <td><button class="small danger" data-delete-report="${report.id}" type="button">Remove</button></td>
           </tr>`;
         })
         .join("")
-    : `<tr><td class="empty" colspan="9">No report history yet.</td></tr>`;
+    : `<tr><td class="empty" colspan="10">No report history yet.</td></tr>`;
 }
 
 function resizeCanvas(canvas) {
@@ -850,6 +855,25 @@ document.addEventListener("click", (event) => {
   const repId = event.target.dataset?.deleteRep;
   const brandId = event.target.dataset?.deleteBrand;
   const clinicId = event.target.dataset?.deleteClinic;
+  const reportId = event.target.dataset?.deleteReport;
+
+  if (reportId) {
+    const report = state.reports.find((item) => item.id === reportId);
+    if (!report) return;
+
+    const password = prompt(`Enter password to remove ${report.name}`);
+    if (password === null) return;
+
+    if (password !== DELETE_REPORT_PASSWORD) {
+      alert("Incorrect password. Report was not removed.");
+      return;
+    }
+
+    state.reports = state.reports.filter((item) => item.id !== reportId);
+    if (els.viewFilter.value === reportId) els.viewFilter.value = "all";
+    render();
+    return;
+  }
 
   if (repId && state.reps.length > 1) {
     state.reps = state.reps.filter((rep) => rep.id !== repId);
