@@ -285,6 +285,23 @@ async function forceCloudRefresh() {
   }
 }
 
+async function requireCloudReady(statusElement) {
+  if (!configuredForSupabase()) return true;
+
+  supabaseClient = supabaseClient || window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+  const { data } = await supabaseClient.auth.getSession();
+
+  if (!data?.session) {
+    cloudReady = false;
+    setSyncStatus("Cloud signed out");
+    statusElement.textContent = "Sign in under Cloud Access before making changes.";
+    return false;
+  }
+
+  cloudReady = true;
+  return true;
+}
+
 async function refreshAuthState() {
   if (!configuredForSupabase()) {
     els.authMode.textContent = "Not configured";
@@ -845,6 +862,7 @@ els.uploadForm.addEventListener("submit", async (event) => {
   if (!file) return;
 
   try {
+    if (!(await requireCloudReady(els.uploadStatus))) return;
     const rows = await readFile(file);
     addReport({
       name: els.reportName.value.trim() || file.name,
@@ -855,12 +873,16 @@ els.uploadForm.addEventListener("submit", async (event) => {
       repId: els.repSelect.value,
       rows,
     });
-    els.uploadStatus.textContent = `Imported ${rows.length} rows from ${file.name}.`;
-    els.uploadForm.reset();
     render();
-    if (cloudReady) await saveCloudState();
+    if (cloudReady) {
+      await saveCloudState();
+      els.uploadStatus.textContent = `Imported ${rows.length} rows from ${file.name} and saved to cloud.`;
+    } else {
+      els.uploadStatus.textContent = `Imported ${rows.length} rows from ${file.name}.`;
+    }
+    els.uploadForm.reset();
   } catch (error) {
-    els.uploadStatus.textContent = error.message;
+    els.uploadStatus.textContent = `Import failed: ${error.message}`;
   }
 });
 
@@ -870,35 +892,38 @@ els.fileInput.addEventListener("change", () => {
   els.reportName.value = file.name.replace(/\.(csv|xlsx|xls)$/i, "");
 });
 
-els.repForm.addEventListener("submit", (event) => {
+els.repForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = els.repName.value.trim();
   if (!name) return;
+  if (!(await requireCloudReady(els.authStatus))) return;
   state.reps.push({ id: crypto.randomUUID(), name, rate: parseAmount(els.repRate.value) });
   els.repForm.reset();
   render();
 });
 
-els.brandForm.addEventListener("submit", (event) => {
+els.brandForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = els.brandName.value.trim();
   if (!name) {
     els.brandStatus.textContent = "Enter a brand name first.";
     return;
   }
+  if (!(await requireCloudReady(els.brandStatus))) return;
   state.brands.push({ id: crypto.randomUUID(), name, repId: els.brandNoRep.checked ? null : els.brandRep.value });
   els.brandStatus.textContent = `Added brand ${name}${els.brandNoRep.checked ? " without a sales rep" : ""}.`;
   els.brandForm.reset();
   render();
 });
 
-els.clinicForm.addEventListener("submit", (event) => {
+els.clinicForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = els.clinicName.value.trim();
   if (!name) {
     els.clinicStatus.textContent = "Enter a clinic name first.";
     return;
   }
+  if (!(await requireCloudReady(els.clinicStatus))) return;
   state.clinics.push({ id: crypto.randomUUID(), name, repId: els.clinicNoRep.checked ? null : els.clinicRep.value });
   els.clinicStatus.textContent = `Added clinic ${name}${els.clinicNoRep.checked ? " without a sales rep" : ""}.`;
   els.clinicForm.reset();
@@ -916,6 +941,12 @@ document.addEventListener("click", (event) => {
     if (!report) return;
 
     if (!confirmProtectedDelete(report.name)) return;
+
+    if (!cloudReady && configuredForSupabase()) {
+      setSyncStatus("Cloud signed out");
+      alert("Sign in under Cloud Access before removing a report.");
+      return;
+    }
 
     state.reports = state.reports.filter((item) => item.id !== reportId);
     if (els.viewFilter.value === reportId) els.viewFilter.value = "all";
@@ -939,6 +970,11 @@ document.addEventListener("click", (event) => {
   if (brandId && state.brands.length > 1) {
     const brand = state.brands.find((item) => item.id === brandId);
     if (!brand || !confirmProtectedDelete(brand.name)) return;
+    if (!cloudReady && configuredForSupabase()) {
+      setSyncStatus("Cloud signed out");
+      alert("Sign in under Cloud Access before removing a brand.");
+      return;
+    }
 
     state.brands = state.brands.filter((brand) => brand.id !== brandId);
     state.reports.forEach((report) => {
@@ -952,6 +988,11 @@ document.addEventListener("click", (event) => {
   if (clinicId && state.clinics.length > 1) {
     const clinic = state.clinics.find((item) => item.id === clinicId);
     if (!clinic || !confirmProtectedDelete(clinic.name)) return;
+    if (!cloudReady && configuredForSupabase()) {
+      setSyncStatus("Cloud signed out");
+      alert("Sign in under Cloud Access before removing a clinic.");
+      return;
+    }
 
     state.clinics = state.clinics.filter((clinic) => clinic.id !== clinicId);
     state.reports.forEach((report) => {
