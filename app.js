@@ -3,6 +3,7 @@ const AUTO = "auto";
 const NO_BRAND = "none";
 const NO_CLINIC = "none";
 const CLOUD_ROW_ID = "main";
+const CLOUD_CHUNK_SIZE = 180000;
 const DELETE_REPORT_PASSWORD = "2727Baseline!";
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
@@ -246,17 +247,63 @@ function confirmProtectedDelete(label) {
   return true;
 }
 
+function chunkText(text, size) {
+  const chunks = [];
+  for (let index = 0; index < text.length; index += size) {
+    chunks.push(text.slice(index, index + size));
+  }
+  return chunks.length ? chunks : [""];
+}
+
 async function saveCloudState() {
   if (!supabaseClient || !cloudReady) return;
   setSyncStatus("Cloud saving...");
-  const { error } = await supabaseClient
+  const serialized = JSON.stringify(localStateSnapshot());
+  const chunks = chunkText(serialized, CLOUD_CHUNK_SIZE);
+  const updatedAt = new Date().toISOString();
+  const payload = chunks.map((chunk, index) => ({
+    id: CLOUD_ROW_ID,
+    chunk_index: index,
+    chunk_text: chunk,
+    updated_at: updatedAt,
+  }));
+
+  const { error: upsertError } = await supabaseClient.from("dashboard_state_chunks").upsert(payload);
+  if (upsertError) throw upsertError;
+
+  const { error: deleteError } = await supabaseClient
+    .from("dashboard_state_chunks")
+    .delete()
+    .eq("id", CLOUD_ROW_ID)
+    .gte("chunk_index", chunks.length);
+  if (deleteError) throw deleteError;
+
+  const { error: pointerError } = await supabaseClient
     .from("dashboard_state")
-    .upsert({ id: CLOUD_ROW_ID, payload: localStateSnapshot(), updated_at: new Date().toISOString() });
-  if (error) throw error;
+    .upsert({ id: CLOUD_ROW_ID, payload: { chunked: true, chunks: chunks.length }, updated_at: updatedAt });
+  if (pointerError) throw pointerError;
+
   setSyncStatus(`Cloud synced ${syncTimeLabel()}`);
 }
 
 async function loadCloudState() {
+  const { data: chunkData, error: chunkError } = await supabaseClient
+    .from("dashboard_state_chunks")
+    .select("chunk_index, chunk_text")
+    .eq("id", CLOUD_ROW_ID)
+    .order("chunk_index", { ascending: true });
+
+  if (!chunkError && chunkData?.length) {
+    const payload = JSON.parse(chunkData.map((chunk) => chunk.chunk_text).join(""));
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(payload));
+    } catch {
+      setSyncStatus("Local cache full; using cloud data");
+    }
+    state = loadState(payload);
+    return;
+  }
+
   const { data, error } = await supabaseClient.from("dashboard_state").select("payload").eq("id", CLOUD_ROW_ID).maybeSingle();
   if (error) throw error;
 
