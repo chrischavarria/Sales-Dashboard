@@ -249,6 +249,28 @@
           </section>
         </div>
 
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Brand Monthly Trend</h2>
+            <span id="brandTrendNote">Month over month</span>
+          </div>
+          <canvas id="brandTrendChart" height="300"></canvas>
+          <div class="table-wrap scroll-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Brand</th>
+                  <th id="previousMonthHeader">Previous Month</th>
+                  <th id="currentMonthHeader">Current Month</th>
+                  <th>Change</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody id="brandTrendTable"></tbody>
+            </table>
+          </div>
+        </section>
+
         <div class="chart-grid">
           <section class="table-panel">
             <div class="panel-heading">

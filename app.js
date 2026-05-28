@@ -64,9 +64,14 @@ const els = {
   brandChart: document.querySelector("#brandChart"),
   clinicChart: document.querySelector("#clinicChart"),
   repChart: document.querySelector("#repChart"),
+  brandTrendChart: document.querySelector("#brandTrendChart"),
   brandChartNote: document.querySelector("#brandChartNote"),
   clinicChartNote: document.querySelector("#clinicChartNote"),
   repChartNote: document.querySelector("#repChartNote"),
+  brandTrendNote: document.querySelector("#brandTrendNote"),
+  brandTrendTable: document.querySelector("#brandTrendTable"),
+  previousMonthHeader: document.querySelector("#previousMonthHeader"),
+  currentMonthHeader: document.querySelector("#currentMonthHeader"),
   brandTable: document.querySelector("#brandTable"),
   clinicTable: document.querySelector("#clinicTable"),
   repTable: document.querySelector("#repTable"),
@@ -408,6 +413,12 @@ function number(value) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0);
 }
 
+function percent(value) {
+  if (value === Infinity) return "New";
+  if (!Number.isFinite(value)) return "N/A";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, style: "percent" }).format(value);
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => {
     const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -604,6 +615,18 @@ function groupRows(rows, keyFn) {
     item.rows.push(row);
   });
   return [...map.entries()].map(([name, totals]) => ({ name, ...totals }));
+}
+
+function monthKey(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key) {
+  if (key === "Unknown") return "Unknown";
+  const [year, month] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(new Date(year, month - 1, 1));
 }
 
 function restoreSelect(select, value, fallback) {
@@ -852,6 +875,121 @@ function drawBarChart(canvas, items, valueKey, color) {
   });
 }
 
+function drawTrendChart(canvas, months, brandSeries) {
+  canvas.style.height = "320px";
+  const { ctx, width, height } = resizeCanvas(canvas);
+  ctx.clearRect(0, 0, width, height);
+
+  const chartBrands = brandSeries.slice(0, 6);
+  const left = 48;
+  const right = 18;
+  const top = 20;
+  const bottom = 54;
+  const chartWidth = width - left - right;
+  const chartHeight = height - top - bottom;
+  const max = Math.max(...chartBrands.flatMap((brand) => months.map((month) => brand.months[month] || 0)), 1);
+  const colors = ["#287a74", "#486fa7", "#b98516", "#8f4f7f", "#5f7f3a", "#6d6477"];
+
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+
+  if (!months.length || !chartBrands.length) {
+    ctx.fillStyle = "#64717e";
+    ctx.fillText("No brand trend data yet", 16, 32);
+    return;
+  }
+
+  ctx.strokeStyle = "#d8dee4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, top + chartHeight);
+  ctx.lineTo(left + chartWidth, top + chartHeight);
+  ctx.stroke();
+
+  months.forEach((month, index) => {
+    const x = left + (chartWidth * index) / Math.max(months.length - 1, 1);
+    ctx.fillStyle = "#64717e";
+    ctx.textAlign = "center";
+    ctx.fillText(monthLabel(month), x, top + chartHeight + 22);
+  });
+  ctx.textAlign = "left";
+
+  chartBrands.forEach((brand, brandIndex) => {
+    ctx.strokeStyle = colors[brandIndex % colors.length];
+    ctx.fillStyle = colors[brandIndex % colors.length];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    months.forEach((month, monthIndex) => {
+      const x = left + (chartWidth * monthIndex) / Math.max(months.length - 1, 1);
+      const y = top + chartHeight - ((brand.months[month] || 0) / max) * chartHeight;
+      if (monthIndex === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    months.forEach((month, monthIndex) => {
+      const x = left + (chartWidth * monthIndex) / Math.max(months.length - 1, 1);
+      const y = top + chartHeight - ((brand.months[month] || 0) / max) * chartHeight;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    const legendX = left + (brandIndex % 2) * Math.max(160, chartWidth / 2);
+    const legendY = 14 + Math.floor(brandIndex / 2) * 18;
+    ctx.fillRect(legendX, legendY - 5, 10, 10);
+    ctx.fillStyle = "#182027";
+    ctx.fillText(fitText(ctx, brand.name, 130), legendX + 15, legendY);
+  });
+}
+
+function renderBrandTrend(rows) {
+  const brandRows = rows.filter((row) => row.brandId !== NO_BRAND);
+  const monthSet = new Set(brandRows.map((row) => monthKey(row.startDate)));
+  const months = [...monthSet].filter((month) => month !== "Unknown").sort().slice(-6);
+  const currentMonth = months[months.length - 1];
+  const previousMonth = months[months.length - 2];
+  const brandMap = new Map();
+
+  brandRows.forEach((row) => {
+    const month = monthKey(row.startDate);
+    if (month === "Unknown") return;
+    const brand = getBrand(row.brandId).name;
+    if (!brandMap.has(brand)) brandMap.set(brand, { name: brand, months: {}, total: 0 });
+    const item = brandMap.get(brand);
+    item.months[month] = (item.months[month] || 0) + row.revenue;
+    item.total += row.revenue;
+  });
+
+  const brandSeries = [...brandMap.values()].sort((a, b) => b.total - a.total);
+  drawTrendChart(els.brandTrendChart, months, brandSeries);
+
+  els.previousMonthHeader.textContent = previousMonth ? monthLabel(previousMonth) : "Previous Month";
+  els.currentMonthHeader.textContent = currentMonth ? monthLabel(currentMonth) : "Current Month";
+  els.brandTrendNote.textContent = months.length ? `${monthLabel(months[0])} to ${monthLabel(months[months.length - 1])}` : "Month over month";
+
+  els.brandTrendTable.innerHTML =
+    currentMonth && brandSeries.length
+      ? brandSeries
+          .map((brand) => {
+            const previous = previousMonth ? brand.months[previousMonth] || 0 : 0;
+            const current = brand.months[currentMonth] || 0;
+            const change = current - previous;
+            const changePct = previous ? change / previous : current ? Infinity : 0;
+            return `<tr>
+              <td>${escapeHtml(brand.name)}</td>
+              <td class="number">${money(previous)}</td>
+              <td class="number">${money(current)}</td>
+              <td class="number">${money(change)}</td>
+              <td class="number">${percent(changePct)}</td>
+            </tr>`;
+          })
+          .join("")
+      : `<tr><td class="empty" colspan="5">Upload brand reports across multiple months to see trends.</td></tr>`;
+}
+
 function renderCharts(rows) {
   const brandItems = groupRows(rows.filter((row) => row.brandId !== NO_BRAND), (row) => getBrand(row.brandId).name).sort((a, b) => b.revenue - a.revenue);
   const clinicItems = groupRows(rows.filter((row) => row.clinicId !== NO_CLINIC), (row) => getClinic(row.clinicId).name).sort((a, b) => b.revenue - a.revenue);
@@ -865,6 +1003,7 @@ function renderCharts(rows) {
   drawBarChart(els.brandChart, brandItems, "revenue", "#287a74");
   drawBarChart(els.clinicChart, clinicItems, "revenue", "#486fa7");
   drawBarChart(els.repChart, repItems, "commission", "#b98516");
+  renderBrandTrend(rows);
 }
 
 function render() {
