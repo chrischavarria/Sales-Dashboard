@@ -82,7 +82,7 @@ const els = {
   syncStatus: document.querySelector("#syncStatus"),
 };
 
-function loadState() {
+function loadState(sourceState) {
   const unassignedRep = { id: crypto.randomUUID(), name: "Unassigned", rate: 0 };
   const unassignedBrand = { id: crypto.randomUUID(), name: "Unassigned", repId: null };
   const unassignedClinic = {
@@ -98,7 +98,7 @@ function loadState() {
   };
 
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
+    const parsed = sourceState || JSON.parse(localStorage.getItem(STORE_KEY));
     if (!parsed || !Array.isArray(parsed.reports)) return fallback;
     const reps = parsed.reps?.length ? parsed.reps : fallback.reps;
     const brands = parsed.brands?.length
@@ -197,7 +197,15 @@ function localStateSnapshot() {
 }
 
 function saveState() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  } catch (error) {
+    if (!cloudReady) {
+      setSyncStatus("Local storage full");
+      return;
+    }
+    setSyncStatus("Local cache full; cloud save pending");
+  }
   if (!cloudReady) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
@@ -253,8 +261,12 @@ async function loadCloudState() {
   if (error) throw error;
 
   if (data?.payload) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(data.payload));
-    state = loadState();
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data.payload));
+    } catch {
+      setSyncStatus("Local cache full; using cloud data");
+    }
+    state = loadState(data.payload);
   } else {
     await saveCloudState();
   }
