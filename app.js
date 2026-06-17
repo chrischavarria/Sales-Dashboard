@@ -97,14 +97,33 @@ const els = {
   pricingWorkbookForm: document.querySelector("#pricingWorkbookForm"),
   pricingWorkbookFile: document.querySelector("#pricingWorkbookFile"),
   pricingWorkbookStatus: document.querySelector("#pricingWorkbookStatus"),
+  manualApiForm: document.querySelector("#manualApiForm"),
+  manualApiName: document.querySelector("#manualApiName"),
+  manualApiUnit: document.querySelector("#manualApiUnit"),
+  manualApiCost: document.querySelector("#manualApiCost"),
+  manualApiStatus: document.querySelector("#manualApiStatus"),
   skuCostForm: document.querySelector("#skuCostForm"),
   skuCostFile: document.querySelector("#skuCostFile"),
   skuCostStatus: document.querySelector("#skuCostStatus"),
   skuCostTable: document.querySelector("#skuCostTable"),
+  manualSkuForm: document.querySelector("#manualSkuForm"),
+  manualSkuFormula: document.querySelector("#manualSkuFormula"),
+  manualSkuApi: document.querySelector("#manualSkuApi"),
+  manualSkuQuantity: document.querySelector("#manualSkuQuantity"),
+  manualSkuUnits: document.querySelector("#manualSkuUnits"),
+  manualSkuTotal: document.querySelector("#manualSkuTotal"),
+  manualSkuUnitCost: document.querySelector("#manualSkuUnitCost"),
+  manualSkuStatus: document.querySelector("#manualSkuStatus"),
   materialCostForm: document.querySelector("#materialCostForm"),
   materialCostFile: document.querySelector("#materialCostFile"),
   materialCostStatus: document.querySelector("#materialCostStatus"),
   materialCostTable: document.querySelector("#materialCostTable"),
+  manualMaterialForm: document.querySelector("#manualMaterialForm"),
+  manualMaterialName: document.querySelector("#manualMaterialName"),
+  manualMaterialCategory: document.querySelector("#manualMaterialCategory"),
+  manualMaterialUnit: document.querySelector("#manualMaterialUnit"),
+  manualMaterialCost: document.querySelector("#manualMaterialCost"),
+  manualMaterialStatus: document.querySelector("#manualMaterialStatus"),
   builderApiTotal: document.querySelector("#builderApiTotal"),
   builderMaterialTotal: document.querySelector("#builderMaterialTotal"),
   builderGrandTotal: document.querySelector("#builderGrandTotal"),
@@ -1631,6 +1650,28 @@ els.pricingWorkbookForm.addEventListener("submit", async (event) => {
   }
 });
 
+els.manualApiForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.manualApiStatus))) return;
+  const name = els.manualApiName.value.trim();
+  const cost = parseAmount(els.manualApiCost.value);
+  if (!name || !cost) {
+    els.manualApiStatus.textContent = "Enter an API name and unit cost.";
+    return;
+  }
+  upsertCosts("apiCosts", [{
+    id: crypto.randomUUID(),
+    name,
+    cost,
+    unit: els.manualApiUnit.value.trim() || "unit",
+    notes: "",
+  }]);
+  els.manualApiStatus.textContent = `Saved API ${name}.`;
+  els.manualApiForm.reset();
+  render();
+  if (cloudReady) await saveCloudState();
+});
+
 els.skuCostForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -1652,6 +1693,32 @@ els.skuCostForm.addEventListener("submit", async (event) => {
   }
 });
 
+els.manualSkuForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.manualSkuStatus))) return;
+  const formula = els.manualSkuFormula.value.trim();
+  const api = els.manualSkuApi.value.trim();
+  const total = parseAmount(els.manualSkuTotal.value);
+  const unitCost = parseAmount(els.manualSkuUnitCost.value);
+  if (!formula || !api || (!total && !unitCost)) {
+    els.manualSkuStatus.textContent = "Enter SKU, API, and either total or unit cost.";
+    return;
+  }
+  upsertSkuCosts([{
+    id: crypto.randomUUID(),
+    formula,
+    api,
+    quantity: parseAmount(els.manualSkuQuantity.value),
+    units: els.manualSkuUnits.value.trim(),
+    total,
+    unitCost,
+  }]);
+  els.manualSkuStatus.textContent = `Saved ${formula} / ${api}.`;
+  els.manualSkuForm.reset();
+  render();
+  if (cloudReady) await saveCloudState();
+});
+
 els.materialCostForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -1666,6 +1733,29 @@ els.materialCostForm.addEventListener("submit", async (event) => {
   } catch (error) {
     els.materialCostStatus.textContent = `Material import failed: ${error.message}`;
   }
+});
+
+els.manualMaterialForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.manualMaterialStatus))) return;
+  const name = els.manualMaterialName.value.trim();
+  const cost = parseAmount(els.manualMaterialCost.value);
+  if (!name || !cost) {
+    els.manualMaterialStatus.textContent = "Enter a material name and cost.";
+    return;
+  }
+  upsertCosts("materialCosts", [{
+    id: crypto.randomUUID(),
+    name,
+    category: els.manualMaterialCategory.value.trim() || "Material",
+    unit: els.manualMaterialUnit.value.trim() || "unit",
+    cost,
+    notes: "",
+  }]);
+  els.manualMaterialStatus.textContent = `Saved material ${name}.`;
+  els.manualMaterialForm.reset();
+  render();
+  if (cloudReady) await saveCloudState();
 });
 
 els.clearBuilderBtn.addEventListener("click", () => {

@@ -412,6 +412,20 @@ body:not(.locked) #lockedNotice {
   align-items: end;
 }
 
+.manual-cost-form {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.4fr) minmax(90px, 0.7fr) minmax(110px, 0.8fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.manual-cost-form.sku-manual-form {
+  grid-template-columns: repeat(6, minmax(100px, 1fr)) auto;
+}
+
 .builder-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -680,6 +694,11 @@ tbody tr:last-child td {
   .filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .manual-cost-form,
+  .manual-cost-form.sku-manual-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -692,7 +711,10 @@ tbody tr:last-child td {
   .field-grid,
   .field-grid.three,
   .metric-grid,
-  .filters {
+  .filters,
+  .manual-cost-form,
+  .manual-cost-form.sku-manual-form,
+  .pricing-upload {
     grid-template-columns: 1fr;
   }
 }

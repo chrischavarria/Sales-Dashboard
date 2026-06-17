@@ -437,6 +437,22 @@
             <button type="submit">Import API Costs</button>
           </form>
           <p id="apiCostStatus" class="status" role="status"></p>
+          <form id="manualApiForm" class="manual-cost-form">
+            <label>
+              API / Ingredient
+              <input id="manualApiName" type="text" placeholder="Ingredient name">
+            </label>
+            <label>
+              Unit
+              <input id="manualApiUnit" type="text" placeholder="GMS">
+            </label>
+            <label>
+              Unit cost
+              <input id="manualApiCost" type="number" min="0" step="0.0001" placeholder="0.00">
+            </label>
+            <button type="submit">Add API</button>
+          </form>
+          <p id="manualApiStatus" class="status" role="status"></p>
         </section>
 
         <div class="chart-grid">
@@ -499,6 +515,34 @@
             <button type="submit">Import SKU Costs</button>
           </form>
           <p id="skuCostStatus" class="status" role="status"></p>
+          <form id="manualSkuForm" class="manual-cost-form sku-manual-form">
+            <label>
+              SKU / Formula
+              <input id="manualSkuFormula" type="text" placeholder="DD1">
+            </label>
+            <label>
+              API
+              <input id="manualSkuApi" type="text" placeholder="Ingredient name">
+            </label>
+            <label>
+              Quantity
+              <input id="manualSkuQuantity" type="number" min="0" step="0.0001" placeholder="0">
+            </label>
+            <label>
+              Units
+              <input id="manualSkuUnits" type="text" placeholder="GMS">
+            </label>
+            <label>
+              Total
+              <input id="manualSkuTotal" type="number" min="0" step="0.0001" placeholder="0.00">
+            </label>
+            <label>
+              Unit cost
+              <input id="manualSkuUnitCost" type="number" min="0" step="0.0001" placeholder="0.00">
+            </label>
+            <button type="submit">Add SKU Line</button>
+          </form>
+          <p id="manualSkuStatus" class="status" role="status"></p>
         </section>
 
         <section class="table-panel">
@@ -538,6 +582,26 @@
             <button type="submit">Import Material Costs</button>
           </form>
           <p id="materialCostStatus" class="status" role="status"></p>
+          <form id="manualMaterialForm" class="manual-cost-form">
+            <label>
+              Material
+              <input id="manualMaterialName" type="text" placeholder="30GM AIRLESS PUMP">
+            </label>
+            <label>
+              Category
+              <input id="manualMaterialCategory" type="text" placeholder="Pump">
+            </label>
+            <label>
+              Unit
+              <input id="manualMaterialUnit" type="text" placeholder="unit">
+            </label>
+            <label>
+              Cost
+              <input id="manualMaterialCost" type="number" min="0" step="0.0001" placeholder="0.00">
+            </label>
+            <button type="submit">Add Material</button>
+          </form>
+          <p id="manualMaterialStatus" class="status" role="status"></p>
         </section>
 
         <div class="chart-grid">
