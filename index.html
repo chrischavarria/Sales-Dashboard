@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Pharmacy Sales Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -160,7 +163,12 @@
       </section>
 
       <section class="dashboard" aria-label="Dashboard">
-        <div class="filters">
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <h2>Filters</h2>
+            <span>Refine the view</span>
+          </div>
+          <div class="filters">
           <label>
             View
             <select id="viewFilter">
@@ -193,10 +201,13 @@
               <option value="all">All reps</option>
             </select>
           </label>
-        </div>
+          </div>
+        </section>
 
-        <div class="metric-grid">
-          <article class="metric">
+        <section class="overview">
+          <p class="section-label">Performance Overview</p>
+          <div class="metric-grid">
+          <article class="metric accent-indigo">
             <span>Revenue</span>
             <strong id="totalRevenue">$0</strong>
           </article>
@@ -204,7 +215,7 @@
             <span>Shipping</span>
             <strong id="totalShipping">$0</strong>
           </article>
-          <article class="metric">
+          <article class="metric accent-sage">
             <span>Net Before Commission</span>
             <strong id="netRevenue">$0</strong>
           </article>
@@ -220,7 +231,8 @@
             <span>Replacements</span>
             <strong id="totalReplacements">0</strong>
           </article>
-        </div>
+          </div>
+        </section>
 
         <div class="chart-grid">
           <section class="chart-panel">

@@ -845,7 +845,7 @@ function drawBarChart(canvas, items, valueKey, color) {
   ctx.textBaseline = "middle";
 
   if (!chartItems.length) {
-    ctx.fillStyle = "#64717e";
+    ctx.fillStyle = "#837f78";
     ctx.fillText("No data yet", 16, 32);
     return;
   }
@@ -857,14 +857,14 @@ function drawBarChart(canvas, items, valueKey, color) {
     const valueWidth = ctx.measureText(valueLabel).width;
     const barArea = Math.max(80, width - left - right - valueWidth - 12);
     const barWidth = Math.max(3, (barArea * item[valueKey]) / max);
-    ctx.fillStyle = "#64717e";
+    ctx.fillStyle = "#837f78";
     ctx.fillText(label, 0, y);
     ctx.fillStyle = color;
     ctx.fillRect(left, y - 10, barWidth, 20);
 
     const outsideX = left + barWidth + 8;
     if (outsideX + valueWidth <= width - right) {
-      ctx.fillStyle = "#182027";
+      ctx.fillStyle = "#211f54";
       ctx.fillText(valueLabel, outsideX, y);
     } else {
       ctx.fillStyle = "#ffffff";
@@ -888,18 +888,18 @@ function drawTrendChart(canvas, months, brandSeries) {
   const chartWidth = width - left - right;
   const chartHeight = height - top - bottom;
   const max = Math.max(...chartBrands.flatMap((brand) => months.map((month) => brand.months[month] || 0)), 1);
-  const colors = ["#287a74", "#486fa7", "#b98516", "#8f4f7f", "#5f7f3a", "#6d6477"];
+  const colors = ["#4a3aff", "#6b9071", "#211f54", "#9b91ff", "#a7c796", "#5b5890"];
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "middle";
 
   if (!months.length || !chartBrands.length) {
-    ctx.fillStyle = "#64717e";
+    ctx.fillStyle = "#837f78";
     ctx.fillText("No brand trend data yet", 16, 32);
     return;
   }
 
-  ctx.strokeStyle = "#d8dee4";
+  ctx.strokeStyle = "#ddd6c9";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(left, top);
@@ -909,7 +909,7 @@ function drawTrendChart(canvas, months, brandSeries) {
 
   months.forEach((month, index) => {
     const x = left + (chartWidth * index) / Math.max(months.length - 1, 1);
-    ctx.fillStyle = "#64717e";
+    ctx.fillStyle = "#837f78";
     ctx.textAlign = "center";
     ctx.fillText(monthLabel(month), x, top + chartHeight + 22);
   });
@@ -940,7 +940,7 @@ function drawTrendChart(canvas, months, brandSeries) {
     const legendX = left + (brandIndex % 2) * Math.max(160, chartWidth / 2);
     const legendY = 14 + Math.floor(brandIndex / 2) * 18;
     ctx.fillRect(legendX, legendY - 5, 10, 10);
-    ctx.fillStyle = "#182027";
+    ctx.fillStyle = "#211f54";
     ctx.fillText(fitText(ctx, brand.name, 130), legendX + 15, legendY);
   });
 }
@@ -1000,9 +1000,9 @@ function renderCharts(rows) {
   els.brandChartNote.textContent = brandItems.length > 12 ? `Top 12 of ${brandItems.length}` : `${brandItems.length} shown`;
   els.clinicChartNote.textContent = clinicItems.length > 12 ? `Top 12 of ${clinicItems.length}` : `${clinicItems.length} shown`;
   els.repChartNote.textContent = repItems.length > 12 ? `Top 12 of ${repItems.length}` : `${repItems.length} shown`;
-  drawBarChart(els.brandChart, brandItems, "revenue", "#287a74");
-  drawBarChart(els.clinicChart, clinicItems, "revenue", "#486fa7");
-  drawBarChart(els.repChart, repItems, "commission", "#b98516");
+  drawBarChart(els.brandChart, brandItems, "revenue", "#4a3aff");
+  drawBarChart(els.clinicChart, clinicItems, "revenue", "#6b9071");
+  drawBarChart(els.repChart, repItems, "commission", "#211f54");
   renderBrandTrend(rows);
 }
 
