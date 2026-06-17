@@ -294,6 +294,46 @@ body:not(.locked) #lockedNotice {
   gap: 18px;
 }
 
+.dashboard.tab-view:not(.active) {
+  display: none;
+}
+
+.app-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-button {
+  min-height: 38px;
+  color: var(--navy);
+  background: transparent;
+  border-color: transparent;
+}
+
+.tab-button:hover {
+  background: var(--surface-soft);
+}
+
+.tab-button.active {
+  color: #fff;
+  background: var(--indigo);
+}
+
+.tab-view {
+  display: none;
+}
+
+.tab-view.active {
+  display: grid;
+}
+
 /* ---------- Cards ---------- */
 .panel,
 .chart-panel,
@@ -355,6 +395,52 @@ body:not(.locked) #lockedNotice {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.pricing-upload {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.builder-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.builder-summary .metric {
+  min-height: 88px;
+}
+
+.builder-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+  margin: 14px 0;
+}
+
+.builder-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--surface-soft);
+}
+
+.builder-item strong {
+  color: var(--navy);
+}
+
+.builder-item span {
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .status {

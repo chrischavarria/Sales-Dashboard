@@ -168,7 +168,14 @@
         </form>
       </section>
 
-      <section class="dashboard app-private" aria-label="Dashboard">
+      <nav class="app-tabs app-private" aria-label="Dashboard sections">
+        <button class="tab-button active" data-tab="home" type="button">Home</button>
+        <button class="tab-button" data-tab="api" type="button">API Cost</button>
+        <button class="tab-button" data-tab="sku" type="button">SKU Cost</button>
+        <button class="tab-button" data-tab="material" type="button">Material Cost</button>
+      </nav>
+
+      <section id="homeView" class="dashboard app-private tab-view active" data-tab-view="home" aria-label="Dashboard">
         <section class="panel filters-panel">
           <div class="panel-heading">
             <h2>Filters</h2>
@@ -403,6 +410,143 @@
                 </tr>
               </thead>
               <tbody id="historyTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="apiCostView" class="dashboard app-private tab-view" data-tab-view="api" aria-label="API cost">
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <h2>API Cost</h2>
+            <span>Ingredient pricing</span>
+          </div>
+          <form id="apiCostForm" class="pricing-upload">
+            <label>
+              Upload API cost file
+              <input id="apiCostFile" type="file" accept=".csv,.xlsx,.xls">
+            </label>
+            <button type="submit">Import API Costs</button>
+          </form>
+          <p id="apiCostStatus" class="status" role="status"></p>
+        </section>
+
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>API Ingredients</h2>
+              <span>Click to include in compound</span>
+            </div>
+            <div class="table-wrap scroll-table tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>API / Ingredient</th>
+                    <th>Cost</th>
+                    <th>Unit</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="apiCostTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Pricing Builder</h2>
+              <span>APIs + materials</span>
+            </div>
+            <div class="builder-summary">
+              <article class="metric accent-indigo">
+                <span>API Total</span>
+                <strong id="builderApiTotal">$0</strong>
+              </article>
+              <article class="metric accent-sage">
+                <span>Material Total</span>
+                <strong id="builderMaterialTotal">$0</strong>
+              </article>
+              <article class="metric">
+                <span>Compound Cost</span>
+                <strong id="builderGrandTotal">$0</strong>
+              </article>
+            </div>
+            <div class="builder-list" id="builderSelections"></div>
+            <button id="clearBuilderBtn" class="ghost" type="button">Clear Builder</button>
+          </section>
+        </div>
+      </section>
+
+      <section id="skuCostView" class="dashboard app-private tab-view" data-tab-view="sku" aria-label="SKU cost">
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <h2>SKU Cost</h2>
+            <span>Compounded formula pricing</span>
+          </div>
+          <form id="skuCostForm" class="pricing-upload">
+            <label>
+              Upload SKU cost file
+              <input id="skuCostFile" type="file" accept=".csv,.xlsx,.xls">
+            </label>
+            <button type="submit">Import SKU Costs</button>
+          </form>
+          <p id="skuCostStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>SKU Formulas</h2>
+            <span>Complete compounded costs</span>
+          </div>
+          <div class="table-wrap scroll-table tall">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU / Formula</th>
+                  <th>Cost</th>
+                  <th>Unit</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="skuCostTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="materialCostView" class="dashboard app-private tab-view" data-tab-view="material" aria-label="Material cost">
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <h2>Material Cost</h2>
+            <span>Pumps, mailers, inserts, supplies</span>
+          </div>
+          <form id="materialCostForm" class="pricing-upload">
+            <label>
+              Upload material cost file
+              <input id="materialCostFile" type="file" accept=".csv,.xlsx,.xls">
+            </label>
+            <button type="submit">Import Material Costs</button>
+          </form>
+          <p id="materialCostStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Materials</h2>
+            <span>Click to include in builder</span>
+          </div>
+          <div class="table-wrap scroll-table tall">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Category</th>
+                  <th>Cost</th>
+                  <th>Unit</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="materialCostTable"></tbody>
             </table>
           </div>
         </section>

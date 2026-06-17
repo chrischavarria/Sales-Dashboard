@@ -22,6 +22,10 @@ let state = loadState();
 let supabaseClient = null;
 let cloudReady = false;
 let saveTimer = null;
+const builderState = {
+  apis: new Set(),
+  materials: new Set(),
+};
 
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
@@ -86,6 +90,23 @@ const els = {
   authMode: document.querySelector("#authMode"),
   signOutBtn: document.querySelector("#signOutBtn"),
   syncStatus: document.querySelector("#syncStatus"),
+  apiCostForm: document.querySelector("#apiCostForm"),
+  apiCostFile: document.querySelector("#apiCostFile"),
+  apiCostStatus: document.querySelector("#apiCostStatus"),
+  apiCostTable: document.querySelector("#apiCostTable"),
+  skuCostForm: document.querySelector("#skuCostForm"),
+  skuCostFile: document.querySelector("#skuCostFile"),
+  skuCostStatus: document.querySelector("#skuCostStatus"),
+  skuCostTable: document.querySelector("#skuCostTable"),
+  materialCostForm: document.querySelector("#materialCostForm"),
+  materialCostFile: document.querySelector("#materialCostFile"),
+  materialCostStatus: document.querySelector("#materialCostStatus"),
+  materialCostTable: document.querySelector("#materialCostTable"),
+  builderApiTotal: document.querySelector("#builderApiTotal"),
+  builderMaterialTotal: document.querySelector("#builderMaterialTotal"),
+  builderGrandTotal: document.querySelector("#builderGrandTotal"),
+  builderSelections: document.querySelector("#builderSelections"),
+  clearBuilderBtn: document.querySelector("#clearBuilderBtn"),
 };
 
 function loadState(sourceState) {
@@ -101,6 +122,9 @@ function loadState(sourceState) {
     brands: [unassignedBrand],
     clinics: [unassignedClinic],
     reports: [],
+    apiCosts: [],
+    skuCosts: [],
+    materialCosts: [],
   };
 
   try {
@@ -192,6 +216,9 @@ function loadState(sourceState) {
       brands,
       clinics,
       reports,
+      apiCosts: Array.isArray(parsed.apiCosts) ? parsed.apiCosts : [],
+      skuCosts: Array.isArray(parsed.skuCosts) ? parsed.skuCosts : [],
+      materialCosts: Array.isArray(parsed.materialCosts) ? parsed.materialCosts : [],
     };
   } catch {
     return fallback;
@@ -436,6 +463,16 @@ function escapeHtml(value) {
 function parseAmount(value) {
   if (value === null || value === undefined || value === "") return 0;
   return Number(String(value).replace(/[$,\s]/g, "")) || 0;
+}
+
+function textValue(row, names, fallback = "") {
+  const key = findColumn(row, names);
+  return String(row[key] || "").trim() || fallback;
+}
+
+function amountValue(row, names) {
+  const key = findColumn(row, names);
+  return parseAmount(row[key]);
 }
 
 function normalizeKey(key) {
@@ -1013,6 +1050,80 @@ function renderCharts(rows) {
   renderBrandTrend(rows);
 }
 
+function renderCostTables() {
+  els.apiCostTable.innerHTML = state.apiCosts.length
+    ? state.apiCosts
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((item) => `<tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td class="number">${money(item.cost)}</td>
+          <td>${escapeHtml(item.unit || "unit")}</td>
+          <td><button class="small ghost" data-add-api="${item.id}" type="button">Add</button></td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="4">Upload API cost data to build ingredient pricing.</td></tr>`;
+
+  els.skuCostTable.innerHTML = state.skuCosts.length
+    ? state.skuCosts
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((item) => `<tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td class="number">${money(item.cost)}</td>
+          <td>${escapeHtml(item.unit || "formula")}</td>
+          <td>${escapeHtml(item.notes || "")}</td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="4">Upload SKU cost data to see complete formula costs.</td></tr>`;
+
+  els.materialCostTable.innerHTML = state.materialCosts.length
+    ? state.materialCosts
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((item) => `<tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.category || "Material")}</td>
+          <td class="number">${money(item.cost)}</td>
+          <td>${escapeHtml(item.unit || "unit")}</td>
+          <td><button class="small ghost" data-add-material="${item.id}" type="button">Add</button></td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="5">Upload material cost data to include supplies in compound pricing.</td></tr>`;
+}
+
+function renderBuilder() {
+  const apis = selectedApis();
+  const materials = selectedMaterials();
+  const apiTotal = sum(apis, "cost");
+  const materialTotal = sum(materials, "cost");
+  const items = [
+    ...apis.map((item) => ({ ...item, kind: "API", removeAttr: "data-remove-api" })),
+    ...materials.map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-material" })),
+  ];
+
+  els.builderApiTotal.textContent = money(apiTotal);
+  els.builderMaterialTotal.textContent = money(materialTotal);
+  els.builderGrandTotal.textContent = money(apiTotal + materialTotal);
+  els.builderSelections.innerHTML = items.length
+    ? items
+        .map((item) => `<div class="builder-item">
+          <div>
+            <strong>${escapeHtml(item.name)}</strong>
+            <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}</span>
+          </div>
+          <span>${money(item.cost)}</span>
+          <button class="small danger" ${item.removeAttr}="${item.id}" type="button">Remove</button>
+        </div>`)
+        .join("")
+    : `<div class="empty">Click API ingredients and materials to build a compound cost.</div>`;
+}
+
+function renderPricing() {
+  renderCostTables();
+  renderBuilder();
+}
+
 function render() {
   renderOptions();
   renderLists();
@@ -1020,6 +1131,7 @@ function render() {
   renderMetrics(rows);
   renderTables(rows);
   renderCharts(rows);
+  renderPricing();
   saveState();
 }
 
@@ -1059,6 +1171,87 @@ function addReport({ name, startDate, endDate, brandId, clinicId, repId, rows })
   report.brandId = firstRow?.brandId || startingBrandId;
   report.repId = firstRow?.repId || startingRepId;
   state.reports.push(report);
+}
+
+function normalizeApiCosts(rows) {
+  return rows.flatMap((row) => {
+    const name = textValue(row, ["API", "API Name", "Ingredient", "Ingredient Name", "Drug Name", "Item", "Name"]);
+    const cost = amountValue(row, ["Cost", "API Cost", "Price", "Unit Cost", "Ingredient Cost"]);
+    if (!name || !cost) return [];
+    return [{
+      id: crypto.randomUUID(),
+      name,
+      cost,
+      unit: textValue(row, ["Unit", "UOM", "Measure", "Per"], "unit"),
+      notes: textValue(row, ["Notes", "Description"]),
+    }];
+  });
+}
+
+function normalizeSkuCosts(rows) {
+  return rows.flatMap((row) => {
+    const name = textValue(row, ["SKU", "SKU Name", "Formula", "Formula Name", "Product", "Drug Name", "Name"]);
+    const cost = amountValue(row, ["Cost", "SKU Cost", "Formula Cost", "Price", "Unit Cost"]);
+    if (!name || !cost) return [];
+    return [{
+      id: crypto.randomUUID(),
+      name,
+      cost,
+      unit: textValue(row, ["Unit", "UOM", "Measure", "Per"], "formula"),
+      notes: textValue(row, ["Notes", "Description", "Ingredients"]),
+    }];
+  });
+}
+
+function normalizeMaterialCosts(rows) {
+  return rows.flatMap((row) => {
+    const name = textValue(row, ["Material", "Material Name", "Supply", "Item", "Name", "Type"]);
+    const cost = amountValue(row, ["Cost", "Material Cost", "Price", "Unit Cost"]);
+    if (!name || !cost) return [];
+    return [{
+      id: crypto.randomUUID(),
+      name,
+      category: textValue(row, ["Category", "Type", "Group"], "Material"),
+      cost,
+      unit: textValue(row, ["Unit", "UOM", "Measure", "Per"], "unit"),
+      notes: textValue(row, ["Notes", "Description"]),
+    }];
+  });
+}
+
+function upsertCosts(collection, records) {
+  const byName = new Map(state[collection].map((item) => [normalizeKey(item.name), item]));
+  records.forEach((record) => {
+    const key = normalizeKey(record.name);
+    if (byName.has(key)) {
+      Object.assign(byName.get(key), record, { id: byName.get(key).id });
+    } else {
+      state[collection].push(record);
+    }
+  });
+}
+
+function selectedApis() {
+  return state.apiCosts.filter((item) => builderState.apis.has(item.id));
+}
+
+function selectedMaterials() {
+  return state.materialCosts.filter((item) => builderState.materials.has(item.id));
+}
+
+async function importCostFile({ file, normalizer, collection, statusEl, label }) {
+  if (!file) {
+    statusEl.textContent = `Choose a ${label} file first.`;
+    return;
+  }
+  if (!(await requireCloudReady(statusEl))) return;
+
+  const rows = await readFile(file);
+  const records = normalizer(rows);
+  upsertCosts(collection, records);
+  statusEl.textContent = `Imported ${records.length} ${label} records.`;
+  render();
+  if (cloudReady) await saveCloudState();
 }
 
 els.uploadForm.addEventListener("submit", async (event) => {
@@ -1140,6 +1333,34 @@ document.addEventListener("click", (event) => {
   const brandId = event.target.dataset?.deleteBrand;
   const clinicId = event.target.dataset?.deleteClinic;
   const reportId = event.target.dataset?.deleteReport;
+  const addApiId = event.target.dataset?.addApi;
+  const addMaterialId = event.target.dataset?.addMaterial;
+  const removeApiId = event.target.dataset?.removeApi;
+  const removeMaterialId = event.target.dataset?.removeMaterial;
+
+  if (addApiId) {
+    builderState.apis.add(addApiId);
+    renderBuilder();
+    return;
+  }
+
+  if (addMaterialId) {
+    builderState.materials.add(addMaterialId);
+    renderBuilder();
+    return;
+  }
+
+  if (removeApiId) {
+    builderState.apis.delete(removeApiId);
+    renderBuilder();
+    return;
+  }
+
+  if (removeMaterialId) {
+    builderState.materials.delete(removeMaterialId);
+    renderBuilder();
+    return;
+  }
 
   if (reportId) {
     const report = state.reports.find((item) => item.id === reportId);
@@ -1258,6 +1479,68 @@ els.signOutBtn.addEventListener("click", async () => {
 });
 
 els.refreshCloudBtn.addEventListener("click", forceCloudRefresh);
+
+document.querySelectorAll(".tab-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.dataset.tab;
+    document.querySelectorAll(".tab-button").forEach((item) => item.classList.toggle("active", item === button));
+    document.querySelectorAll(".tab-view").forEach((view) => view.classList.toggle("active", view.dataset.tabView === target));
+  });
+});
+
+els.apiCostForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await importCostFile({
+      file: els.apiCostFile.files[0],
+      normalizer: normalizeApiCosts,
+      collection: "apiCosts",
+      statusEl: els.apiCostStatus,
+      label: "API cost",
+    });
+    els.apiCostFile.value = "";
+  } catch (error) {
+    els.apiCostStatus.textContent = `API import failed: ${error.message}`;
+  }
+});
+
+els.skuCostForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await importCostFile({
+      file: els.skuCostFile.files[0],
+      normalizer: normalizeSkuCosts,
+      collection: "skuCosts",
+      statusEl: els.skuCostStatus,
+      label: "SKU cost",
+    });
+    els.skuCostFile.value = "";
+  } catch (error) {
+    els.skuCostStatus.textContent = `SKU import failed: ${error.message}`;
+  }
+});
+
+els.materialCostForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await importCostFile({
+      file: els.materialCostFile.files[0],
+      normalizer: normalizeMaterialCosts,
+      collection: "materialCosts",
+      statusEl: els.materialCostStatus,
+      label: "material cost",
+    });
+    els.materialCostFile.value = "";
+  } catch (error) {
+    els.materialCostStatus.textContent = `Material import failed: ${error.message}`;
+  }
+});
+
+els.clearBuilderBtn.addEventListener("click", () => {
+  builderState.apis.clear();
+  builderState.materials.clear();
+  renderBuilder();
+});
 
 [els.viewFilter, els.filterStart, els.filterEnd, els.filterBrand, els.filterClinic, els.filterRep].forEach((input) => {
   input.addEventListener("input", render);
