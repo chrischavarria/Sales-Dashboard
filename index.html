@@ -521,18 +521,6 @@
               <input id="manualSkuFormula" type="text" placeholder="DD1">
             </label>
             <label>
-              API
-              <input id="manualSkuApi" type="text" placeholder="Ingredient name">
-            </label>
-            <label>
-              Quantity
-              <input id="manualSkuQuantity" type="number" min="0" step="0.0001" placeholder="0">
-            </label>
-            <label>
-              Units
-              <input id="manualSkuUnits" type="text" placeholder="GMS">
-            </label>
-            <label>
               Total
               <input id="manualSkuTotal" type="number" min="0" step="0.0001" placeholder="0.00">
             </label>
@@ -540,7 +528,7 @@
               Unit cost
               <input id="manualSkuUnitCost" type="number" min="0" step="0.0001" placeholder="0.00">
             </label>
-            <button type="submit">Add SKU Line</button>
+            <button type="submit">Add SKU</button>
           </form>
           <p id="manualSkuStatus" class="status" role="status"></p>
         </section>
@@ -555,11 +543,8 @@
               <thead>
                 <tr>
                   <th>SKU / Formula</th>
-                  <th>API</th>
-                  <th>Quantity</th>
-                  <th>Units</th>
-                  <th>Total</th>
-                  <th>Unit Cost</th>
+                  <th>Total Cost</th>
+                  <th>Total Unit Cost</th>
                 </tr>
               </thead>
               <tbody id="skuCostTable"></tbody>

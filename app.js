@@ -108,9 +108,6 @@ const els = {
   skuCostTable: document.querySelector("#skuCostTable"),
   manualSkuForm: document.querySelector("#manualSkuForm"),
   manualSkuFormula: document.querySelector("#manualSkuFormula"),
-  manualSkuApi: document.querySelector("#manualSkuApi"),
-  manualSkuQuantity: document.querySelector("#manualSkuQuantity"),
-  manualSkuUnits: document.querySelector("#manualSkuUnits"),
   manualSkuTotal: document.querySelector("#manualSkuTotal"),
   manualSkuUnitCost: document.querySelector("#manualSkuUnitCost"),
   manualSkuStatus: document.querySelector("#manualSkuStatus"),
@@ -1100,20 +1097,18 @@ function renderCostTables() {
         .join("")
     : `<tr><td class="empty" colspan="4">Upload API cost data to build ingredient pricing.</td></tr>`;
 
-  els.skuCostTable.innerHTML = state.skuCosts.length
-    ? state.skuCosts
+  const skuRows = skuSummaryRows();
+  els.skuCostTable.innerHTML = skuRows.length
+    ? skuRows
         .slice()
-        .sort((a, b) => `${a.formula} ${a.api}`.localeCompare(`${b.formula} ${b.api}`))
+        .sort((a, b) => a.formula.localeCompare(b.formula))
         .map((item) => `<tr>
           <td>${escapeHtml(item.formula || "")}</td>
-          <td>${escapeHtml(item.api || "")}</td>
-          <td class="number">${number(item.quantity)}</td>
-          <td>${escapeHtml(item.units || "")}</td>
           <td class="number">${money(item.total)}</td>
           <td class="number">${money(item.unitCost)}</td>
         </tr>`)
         .join("")
-    : `<tr><td class="empty" colspan="6">Upload SKU cost data to see complete formula costs.</td></tr>`;
+    : `<tr><td class="empty" colspan="3">Upload SKU cost data to see complete formula costs.</td></tr>`;
 
   els.materialCostTable.innerHTML = state.materialCosts.length
     ? state.materialCosts
@@ -1218,14 +1213,14 @@ function addReport({ name, startDate, endDate, brandId, clinicId, repId, rows })
 
 function normalizeApiCosts(rows) {
   return rows.flatMap((row) => {
-    const name = textValue(row, ["API", "API Name", "Ingredient", "Ingredient Name", "Drug Name", "Item", "Name"]);
+    const name = textValue(row, ["API", "API Name", "Ingredient", "Ingredient Name", "Drug", "Drug Name", "Item", "Name"]);
     const cost = amountValue(row, ["Cost", "API Cost", "Price", "Unit Cost", "Ingredient Cost"]);
     if (!name || !cost) return [];
     return [{
       id: crypto.randomUUID(),
       name,
       cost,
-      unit: textValue(row, ["Unit", "UOM", "Measure", "Per"], "unit"),
+      unit: textValue(row, ["Units", "Unit", "UOM", "Measure", "Per"], "unit"),
       notes: textValue(row, ["Notes", "Description"]),
     }];
   });
@@ -1234,18 +1229,12 @@ function normalizeApiCosts(rows) {
 function normalizeSkuCosts(rows) {
   return rows.flatMap((row) => {
     const formula = textValue(row, ["SKU", "SKU Name", "Formula", "Formula Name", "Product", "Name"]);
-    const api = textValue(row, ["API", "Ingredient", "Drug", "Drug Name"], formula);
-    const quantity = amountValue(row, ["QTY", "Quantity", "Amount"]);
-    const units = textValue(row, ["Units", "Unit", "UOM"]);
     const total = amountValue(row, ["Total", "Totals", "Cost", "SKU Cost", "Formula Cost", "Price"]);
     const unitCost = amountValue(row, ["Unit Cost", "Cost Per Unit"]);
-    if (!formula || !total) return [];
+    if (!formula || (!total && !unitCost)) return [];
     return [{
       id: crypto.randomUUID(),
       formula,
-      api,
-      quantity,
-      units,
       total,
       unitCost,
     }];
@@ -1253,10 +1242,26 @@ function normalizeSkuCosts(rows) {
 }
 
 function normalizeFormulaSheet(rows) {
-  const records = [];
+  const formulas = new Map();
   let currentFormula = "";
 
+  function ensureFormula(name) {
+    const formula = String(name || "").trim();
+    if (!formula) return null;
+    const key = normalizeKey(formula);
+    if (!formulas.has(key)) {
+      formulas.set(key, {
+        id: crypto.randomUUID(),
+        formula,
+        total: 0,
+        unitCost: 0,
+      });
+    }
+    return formulas.get(key);
+  }
+
   rows.forEach((row) => {
+    const keys = Object.keys(row);
     const values = Object.values(row);
     const first = String(values[0] || "").trim();
     const second = String(values[1] || "").trim();
@@ -1266,35 +1271,35 @@ function normalizeFormulaSheet(rows) {
 
     if (!first) return;
 
+    if (!currentFormula && normalizeKey(keys[1]) === "qty") {
+      currentFormula = String(keys[0] || "").trim();
+      ensureFormula(currentFormula);
+    }
+
     if (normalizeKey(second) === "qty") {
       currentFormula = first;
+      ensureFormula(currentFormula);
       return;
     }
 
     if (!second && !third && !fourth && !fifth) {
       currentFormula = first;
+      ensureFormula(currentFormula);
       return;
     }
 
     if (!currentFormula) return;
 
-    const quantity = parseAmount(second);
     const total = parseAmount(fourth);
     const unitCost = parseAmount(fifth);
-    if (!quantity && !total && !unitCost) return;
+    if (!total && !unitCost) return;
 
-    records.push({
-      id: crypto.randomUUID(),
-      formula: currentFormula,
-      api: first,
-      quantity,
-      units: third,
-      total,
-      unitCost,
-    });
+    const record = ensureFormula(currentFormula);
+    record.total += total;
+    record.unitCost += unitCost;
   });
 
-  return records;
+  return [...formulas.values()].filter((record) => record.total || record.unitCost);
 }
 
 function normalizeMaterialCosts(rows) {
@@ -1326,15 +1331,28 @@ function upsertCosts(collection, records) {
 }
 
 function upsertSkuCosts(records) {
-  const byName = new Map(state.skuCosts.map((item) => [`${normalizeKey(item.formula)}|${normalizeKey(item.api)}`, item]));
   records.forEach((record) => {
-    const key = `${normalizeKey(record.formula)}|${normalizeKey(record.api)}`;
-    if (byName.has(key)) {
-      Object.assign(byName.get(key), record, { id: byName.get(key).id });
-    } else {
-      state.skuCosts.push(record);
-    }
+    const key = normalizeKey(record.formula);
+    const existing = state.skuCosts.find((item) => normalizeKey(item.formula) === key);
+    state.skuCosts = state.skuCosts.filter((item) => normalizeKey(item.formula) !== key);
+    state.skuCosts.push({ ...record, id: existing?.id || record.id });
   });
+}
+
+function skuSummaryRows() {
+  const byFormula = new Map();
+  state.skuCosts.forEach((item) => {
+    const formula = String(item.formula || "").trim();
+    if (!formula) return;
+    const key = normalizeKey(formula);
+    if (!byFormula.has(key)) {
+      byFormula.set(key, { formula, total: 0, unitCost: 0 });
+    }
+    const record = byFormula.get(key);
+    record.total += parseAmount(item.total);
+    record.unitCost += parseAmount(item.unitCost);
+  });
+  return [...byFormula.values()];
 }
 
 function findSheet(sheets, candidates) {
@@ -1384,7 +1402,7 @@ async function importPricingWorkbook(file) {
   upsertSkuCosts(skuRecords);
   upsertCosts("materialCosts", materialRecords);
 
-  els.pricingWorkbookStatus.textContent = `Imported ${apiRecords.length} APIs, ${skuRecords.length} formula lines, and ${materialRecords.length} materials.`;
+  els.pricingWorkbookStatus.textContent = `Imported ${apiRecords.length} APIs, ${skuRecords.length} SKUs, and ${materialRecords.length} materials.`;
   render();
   if (cloudReady) await saveCloudState();
 }
@@ -1697,23 +1715,19 @@ els.manualSkuForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.manualSkuStatus))) return;
   const formula = els.manualSkuFormula.value.trim();
-  const api = els.manualSkuApi.value.trim();
   const total = parseAmount(els.manualSkuTotal.value);
   const unitCost = parseAmount(els.manualSkuUnitCost.value);
-  if (!formula || !api || (!total && !unitCost)) {
-    els.manualSkuStatus.textContent = "Enter SKU, API, and either total or unit cost.";
+  if (!formula || (!total && !unitCost)) {
+    els.manualSkuStatus.textContent = "Enter SKU and either total or unit cost.";
     return;
   }
   upsertSkuCosts([{
     id: crypto.randomUUID(),
     formula,
-    api,
-    quantity: parseAmount(els.manualSkuQuantity.value),
-    units: els.manualSkuUnits.value.trim(),
     total,
     unitCost,
   }]);
-  els.manualSkuStatus.textContent = `Saved ${formula} / ${api}.`;
+  els.manualSkuStatus.textContent = `Saved SKU ${formula}.`;
   els.manualSkuForm.reset();
   render();
   if (cloudReady) await saveCloudState();

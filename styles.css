@@ -423,7 +423,7 @@ body:not(.locked) #lockedNotice {
 }
 
 .manual-cost-form.sku-manual-form {
-  grid-template-columns: repeat(6, minmax(100px, 1fr)) auto;
+  grid-template-columns: minmax(170px, 1.4fr) minmax(110px, 0.8fr) minmax(110px, 0.8fr) auto;
 }
 
 .builder-summary {
