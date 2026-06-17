@@ -107,6 +107,11 @@ const els = {
   builderGrandTotal: document.querySelector("#builderGrandTotal"),
   builderSelections: document.querySelector("#builderSelections"),
   clearBuilderBtn: document.querySelector("#clearBuilderBtn"),
+  materialBuilderApiTotal: document.querySelector("#materialBuilderApiTotal"),
+  materialBuilderMaterialTotal: document.querySelector("#materialBuilderMaterialTotal"),
+  materialBuilderGrandTotal: document.querySelector("#materialBuilderGrandTotal"),
+  materialBuilderSelections: document.querySelector("#materialBuilderSelections"),
+  materialClearBuilderBtn: document.querySelector("#materialClearBuilderBtn"),
 };
 
 function loadState(sourceState) {
@@ -1105,7 +1110,10 @@ function renderBuilder() {
   els.builderApiTotal.textContent = money(apiTotal);
   els.builderMaterialTotal.textContent = money(materialTotal);
   els.builderGrandTotal.textContent = money(apiTotal + materialTotal);
-  els.builderSelections.innerHTML = items.length
+  els.materialBuilderApiTotal.textContent = money(apiTotal);
+  els.materialBuilderMaterialTotal.textContent = money(materialTotal);
+  els.materialBuilderGrandTotal.textContent = money(apiTotal + materialTotal);
+  const selectionHtml = items.length
     ? items
         .map((item) => `<div class="builder-item">
           <div>
@@ -1117,6 +1125,8 @@ function renderBuilder() {
         </div>`)
         .join("")
     : `<div class="empty">Click API ingredients and materials to build a compound cost.</div>`;
+  els.builderSelections.innerHTML = selectionHtml;
+  els.materialBuilderSelections.innerHTML = selectionHtml;
 }
 
 function renderPricing() {
@@ -1538,6 +1548,12 @@ els.materialCostForm.addEventListener("submit", async (event) => {
 });
 
 els.clearBuilderBtn.addEventListener("click", () => {
+  builderState.apis.clear();
+  builderState.materials.clear();
+  renderBuilder();
+});
+
+els.materialClearBuilderBtn.addEventListener("click", () => {
   builderState.apis.clear();
   builderState.materials.clear();
   renderBuilder();

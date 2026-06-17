@@ -530,26 +530,51 @@
           <p id="materialCostStatus" class="status" role="status"></p>
         </section>
 
-        <section class="table-panel">
-          <div class="panel-heading">
-            <h2>Materials</h2>
-            <span>Click to include in builder</span>
-          </div>
-          <div class="table-wrap scroll-table tall">
-            <table>
-              <thead>
-                <tr>
-                  <th>Material</th>
-                  <th>Category</th>
-                  <th>Cost</th>
-                  <th>Unit</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="materialCostTable"></tbody>
-            </table>
-          </div>
-        </section>
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Materials</h2>
+              <span>Click to include in builder</span>
+            </div>
+            <div class="table-wrap scroll-table tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Material</th>
+                    <th>Category</th>
+                    <th>Cost</th>
+                    <th>Unit</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="materialCostTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Pricing Builder</h2>
+              <span>APIs + materials</span>
+            </div>
+            <div class="builder-summary">
+              <article class="metric accent-indigo">
+                <span>API Total</span>
+                <strong id="materialBuilderApiTotal">$0</strong>
+              </article>
+              <article class="metric accent-sage">
+                <span>Material Total</span>
+                <strong id="materialBuilderMaterialTotal">$0</strong>
+              </article>
+              <article class="metric">
+                <span>Compound Cost</span>
+                <strong id="materialBuilderGrandTotal">$0</strong>
+              </article>
+            </div>
+            <div class="builder-list" id="materialBuilderSelections"></div>
+            <button id="materialClearBuilderBtn" class="ghost" type="button">Clear Builder</button>
+          </section>
+        </div>
       </section>
     </main>
   </body>
