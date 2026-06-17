@@ -1485,6 +1485,7 @@ document.querySelectorAll(".tab-button").forEach((button) => {
     const target = button.dataset.tab;
     document.querySelectorAll(".tab-button").forEach((item) => item.classList.toggle("active", item === button));
     document.querySelectorAll(".tab-view").forEach((view) => view.classList.toggle("active", view.dataset.tabView === target));
+    document.body.classList.toggle("home-active", target === "home");
   });
 });
 

@@ -264,6 +264,14 @@ body.locked #sampleBtn {
   display: none;
 }
 
+body:not(.home-active) .home-only {
+  display: none;
+}
+
+body:not(.home-active) .shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 body:not(.locked) #lockedNotice {
   display: none;
 }
@@ -299,10 +307,10 @@ body:not(.locked) #lockedNotice {
 }
 
 .app-tabs {
-  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin: 14px clamp(18px, 4vw, 44px) 0;
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
