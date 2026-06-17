@@ -232,6 +232,10 @@ function setSyncStatus(message) {
   els.syncStatus.textContent = message;
 }
 
+function setLocked(isLocked) {
+  document.body.classList.toggle("locked", isLocked);
+}
+
 function syncTimeLabel() {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
@@ -368,6 +372,7 @@ async function requireCloudReady(statusElement) {
 
 async function refreshAuthState() {
   if (!configuredForSupabase()) {
+    setLocked(true);
     els.authMode.textContent = "Not configured";
     els.authStatus.textContent = "Add your Supabase URL and anon key to supabase-config.js.";
     setSyncStatus("Local mode");
@@ -381,6 +386,7 @@ async function refreshAuthState() {
 
   if (!session) {
     cloudReady = false;
+    setLocked(true);
     els.authMode.textContent = "Sign in";
     els.authStatus.textContent = "Sign in to use shared cloud data.";
     setSyncStatus("Cloud signed out");
@@ -388,6 +394,7 @@ async function refreshAuthState() {
   }
 
   cloudReady = true;
+  setLocked(false);
   els.authMode.textContent = "Signed in";
   els.authStatus.textContent = session.user.email || "Signed in.";
   setSyncStatus("Cloud loading");
@@ -1245,6 +1252,7 @@ els.signOutBtn.addEventListener("click", async () => {
   if (!supabaseClient) return;
   await supabaseClient.auth.signOut();
   cloudReady = false;
+  setLocked(true);
   setSyncStatus("Cloud signed out");
   els.authStatus.textContent = "Signed out. Local browser data is still available on this device.";
 });

@@ -13,7 +13,7 @@
     <script defer src="supabase-config.js"></script>
     <script defer src="app.js"></script>
   </head>
-  <body>
+  <body class="locked">
     <header class="topbar">
       <div>
         <p class="eyebrow">Pharmacy Sales</p>
@@ -48,7 +48,13 @@
           <p id="authStatus" class="status" role="status"></p>
         </form>
 
-        <form id="uploadForm" class="panel">
+        <div id="lockedNotice" class="panel locked-notice">
+          <p class="eyebrow">Access Required</p>
+          <h2>Sign in to view the dashboard</h2>
+          <p>Use the Supabase login created for authorized dashboard users.</p>
+        </div>
+
+        <form id="uploadForm" class="panel app-private">
           <div class="panel-heading">
             <h2>Upload Report</h2>
             <span>CSV or Excel</span>
@@ -98,7 +104,7 @@
           <p id="uploadStatus" class="status" role="status"></p>
         </form>
 
-        <form id="repForm" class="panel compact">
+        <form id="repForm" class="panel compact app-private">
           <div class="panel-heading">
             <h2>Sales Reps</h2>
             <span>Commission</span>
@@ -117,7 +123,7 @@
           <div id="repList" class="pill-list"></div>
         </form>
 
-        <form id="brandForm" class="panel compact">
+        <form id="brandForm" class="panel compact app-private">
           <div class="panel-heading">
             <h2>Brands</h2>
             <span>Products</span>
@@ -139,7 +145,7 @@
           <div id="brandList" class="pill-list scroll-list"></div>
         </form>
 
-        <form id="clinicForm" class="panel compact">
+        <form id="clinicForm" class="panel compact app-private">
           <div class="panel-heading">
             <h2>Clinics</h2>
             <span>Accounts</span>
@@ -162,7 +168,7 @@
         </form>
       </section>
 
-      <section class="dashboard" aria-label="Dashboard">
+      <section class="dashboard app-private" aria-label="Dashboard">
         <section class="panel filters-panel">
           <div class="panel-heading">
             <h2>Filters</h2>

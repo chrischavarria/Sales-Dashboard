@@ -253,6 +253,40 @@ textarea {
   padding: 24px clamp(18px, 4vw, 44px) 44px;
 }
 
+body.locked .shell {
+  grid-template-columns: minmax(300px, 430px);
+  justify-content: center;
+}
+
+body.locked .app-private,
+body.locked #refreshCloudBtn,
+body.locked #sampleBtn {
+  display: none;
+}
+
+body:not(.locked) #lockedNotice {
+  display: none;
+}
+
+.locked-notice {
+  gap: 8px;
+}
+
+.locked-notice h2,
+.locked-notice p {
+  margin: 0;
+}
+
+.locked-notice h2 {
+  color: var(--navy);
+  font-size: 1.3rem;
+}
+
+.locked-notice p:last-child {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .control-panel,
 .dashboard {
   display: grid;
