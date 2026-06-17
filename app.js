@@ -94,6 +94,9 @@ const els = {
   apiCostFile: document.querySelector("#apiCostFile"),
   apiCostStatus: document.querySelector("#apiCostStatus"),
   apiCostTable: document.querySelector("#apiCostTable"),
+  pricingWorkbookForm: document.querySelector("#pricingWorkbookForm"),
+  pricingWorkbookFile: document.querySelector("#pricingWorkbookFile"),
+  pricingWorkbookStatus: document.querySelector("#pricingWorkbookStatus"),
   skuCostForm: document.querySelector("#skuCostForm"),
   skuCostFile: document.querySelector("#skuCostFile"),
   skuCostStatus: document.querySelector("#skuCostStatus"),
@@ -531,9 +534,14 @@ function parseCsv(text) {
 }
 
 async function readFile(file) {
+  const sheets = await readWorkbook(file);
+  return Object.values(sheets)[0] || [];
+}
+
+async function readWorkbook(file) {
   const ext = file.name.split(".").pop().toLowerCase();
   if (ext === "csv") {
-    return parseCsv(await file.text());
+    return { Sheet1: parseCsv(await file.text()) };
   }
 
   if (!window.XLSX) {
@@ -542,8 +550,12 @@ async function readFile(file) {
 
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  return Object.fromEntries(
+    workbook.SheetNames.map((sheetName) => [
+      sheetName,
+      XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" }),
+    ]),
+  );
 }
 
 function normalizeRows(rows, report) {
@@ -1072,15 +1084,17 @@ function renderCostTables() {
   els.skuCostTable.innerHTML = state.skuCosts.length
     ? state.skuCosts
         .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => `${a.formula} ${a.api}`.localeCompare(`${b.formula} ${b.api}`))
         .map((item) => `<tr>
-          <td>${escapeHtml(item.name)}</td>
-          <td class="number">${money(item.cost)}</td>
-          <td>${escapeHtml(item.unit || "formula")}</td>
-          <td>${escapeHtml(item.notes || "")}</td>
+          <td>${escapeHtml(item.formula || "")}</td>
+          <td>${escapeHtml(item.api || "")}</td>
+          <td class="number">${number(item.quantity)}</td>
+          <td>${escapeHtml(item.units || "")}</td>
+          <td class="number">${money(item.total)}</td>
+          <td class="number">${money(item.unitCost)}</td>
         </tr>`)
         .join("")
-    : `<tr><td class="empty" colspan="4">Upload SKU cost data to see complete formula costs.</td></tr>`;
+    : `<tr><td class="empty" colspan="6">Upload SKU cost data to see complete formula costs.</td></tr>`;
 
   els.materialCostTable.innerHTML = state.materialCosts.length
     ? state.materialCosts
@@ -1200,17 +1214,68 @@ function normalizeApiCosts(rows) {
 
 function normalizeSkuCosts(rows) {
   return rows.flatMap((row) => {
-    const name = textValue(row, ["SKU", "SKU Name", "Formula", "Formula Name", "Product", "Drug Name", "Name"]);
-    const cost = amountValue(row, ["Cost", "SKU Cost", "Formula Cost", "Price", "Unit Cost"]);
-    if (!name || !cost) return [];
+    const formula = textValue(row, ["SKU", "SKU Name", "Formula", "Formula Name", "Product", "Name"]);
+    const api = textValue(row, ["API", "Ingredient", "Drug", "Drug Name"], formula);
+    const quantity = amountValue(row, ["QTY", "Quantity", "Amount"]);
+    const units = textValue(row, ["Units", "Unit", "UOM"]);
+    const total = amountValue(row, ["Total", "Totals", "Cost", "SKU Cost", "Formula Cost", "Price"]);
+    const unitCost = amountValue(row, ["Unit Cost", "Cost Per Unit"]);
+    if (!formula || !total) return [];
     return [{
       id: crypto.randomUUID(),
-      name,
-      cost,
-      unit: textValue(row, ["Unit", "UOM", "Measure", "Per"], "formula"),
-      notes: textValue(row, ["Notes", "Description", "Ingredients"]),
+      formula,
+      api,
+      quantity,
+      units,
+      total,
+      unitCost,
     }];
   });
+}
+
+function normalizeFormulaSheet(rows) {
+  const records = [];
+  let currentFormula = "";
+
+  rows.forEach((row) => {
+    const values = Object.values(row);
+    const first = String(values[0] || "").trim();
+    const second = String(values[1] || "").trim();
+    const third = String(values[2] || "").trim();
+    const fourth = values[3];
+    const fifth = values[4];
+
+    if (!first) return;
+
+    if (normalizeKey(second) === "qty") {
+      currentFormula = first;
+      return;
+    }
+
+    if (!second && !third && !fourth && !fifth) {
+      currentFormula = first;
+      return;
+    }
+
+    if (!currentFormula) return;
+
+    const quantity = parseAmount(second);
+    const total = parseAmount(fourth);
+    const unitCost = parseAmount(fifth);
+    if (!quantity && !total && !unitCost) return;
+
+    records.push({
+      id: crypto.randomUUID(),
+      formula: currentFormula,
+      api: first,
+      quantity,
+      units: third,
+      total,
+      unitCost,
+    });
+  });
+
+  return records;
 }
 
 function normalizeMaterialCosts(rows) {
@@ -1241,6 +1306,23 @@ function upsertCosts(collection, records) {
   });
 }
 
+function upsertSkuCosts(records) {
+  const byName = new Map(state.skuCosts.map((item) => [`${normalizeKey(item.formula)}|${normalizeKey(item.api)}`, item]));
+  records.forEach((record) => {
+    const key = `${normalizeKey(record.formula)}|${normalizeKey(record.api)}`;
+    if (byName.has(key)) {
+      Object.assign(byName.get(key), record, { id: byName.get(key).id });
+    } else {
+      state.skuCosts.push(record);
+    }
+  });
+}
+
+function findSheet(sheets, candidates) {
+  const entries = Object.entries(sheets);
+  return entries.find(([name]) => candidates.some((candidate) => normalizeKey(name) === normalizeKey(candidate)))?.[1] || [];
+}
+
 function selectedApis() {
   return state.apiCosts.filter((item) => builderState.apis.has(item.id));
 }
@@ -1260,6 +1342,30 @@ async function importCostFile({ file, normalizer, collection, statusEl, label })
   const records = normalizer(rows);
   upsertCosts(collection, records);
   statusEl.textContent = `Imported ${records.length} ${label} records.`;
+  render();
+  if (cloudReady) await saveCloudState();
+}
+
+async function importPricingWorkbook(file) {
+  if (!file) {
+    els.pricingWorkbookStatus.textContent = "Choose a pricing workbook first.";
+    return;
+  }
+  if (!(await requireCloudReady(els.pricingWorkbookStatus))) return;
+
+  const sheets = await readWorkbook(file);
+  const apiRows = findSheet(sheets, ["DRUGS", "Drugs", "API", "API Cost"]);
+  const formulaRows = findSheet(sheets, ["FORMULAS", "Formulas", "SKU", "SKU Cost"]);
+  const materialRows = findSheet(sheets, ["Sheet3", "Materials", "Material Cost"]);
+  const apiRecords = normalizeApiCosts(apiRows);
+  const skuRecords = normalizeFormulaSheet(formulaRows);
+  const materialRecords = normalizeMaterialCosts(materialRows);
+
+  upsertCosts("apiCosts", apiRecords);
+  upsertSkuCosts(skuRecords);
+  upsertCosts("materialCosts", materialRecords);
+
+  els.pricingWorkbookStatus.textContent = `Imported ${apiRecords.length} APIs, ${skuRecords.length} formula lines, and ${materialRecords.length} materials.`;
   render();
   if (cloudReady) await saveCloudState();
 }
@@ -1515,16 +1621,31 @@ els.apiCostForm.addEventListener("submit", async (event) => {
   }
 });
 
+els.pricingWorkbookForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await importPricingWorkbook(els.pricingWorkbookFile.files[0]);
+    els.pricingWorkbookFile.value = "";
+  } catch (error) {
+    els.pricingWorkbookStatus.textContent = `Pricing workbook import failed: ${error.message}`;
+  }
+});
+
 els.skuCostForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await importCostFile({
-      file: els.skuCostFile.files[0],
-      normalizer: normalizeSkuCosts,
-      collection: "skuCosts",
-      statusEl: els.skuCostStatus,
-      label: "SKU cost",
-    });
+    const file = els.skuCostFile.files[0];
+    if (!file) {
+      els.skuCostStatus.textContent = "Choose a SKU cost file first.";
+      return;
+    }
+    if (!(await requireCloudReady(els.skuCostStatus))) return;
+    const rows = await readFile(file);
+    const records = normalizeSkuCosts(rows);
+    upsertSkuCosts(records);
+    els.skuCostStatus.textContent = `Imported ${records.length} SKU cost records.`;
+    render();
+    if (cloudReady) await saveCloudState();
     els.skuCostFile.value = "";
   } catch (error) {
     els.skuCostStatus.textContent = `SKU import failed: ${error.message}`;

@@ -421,6 +421,14 @@
             <h2>API Cost</h2>
             <span>Ingredient pricing</span>
           </div>
+          <form id="pricingWorkbookForm" class="pricing-upload">
+            <label>
+              Upload full pricing workbook
+              <input id="pricingWorkbookFile" type="file" accept=".xlsx,.xls">
+            </label>
+            <button type="submit">Import Workbook</button>
+          </form>
+          <p id="pricingWorkbookStatus" class="status" role="status"></p>
           <form id="apiCostForm" class="pricing-upload">
             <label>
               Upload API cost file
@@ -503,9 +511,11 @@
               <thead>
                 <tr>
                   <th>SKU / Formula</th>
-                  <th>Cost</th>
-                  <th>Unit</th>
-                  <th>Notes</th>
+                  <th>API</th>
+                  <th>Quantity</th>
+                  <th>Units</th>
+                  <th>Total</th>
+                  <th>Unit Cost</th>
                 </tr>
               </thead>
               <tbody id="skuCostTable"></tbody>
