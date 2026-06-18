@@ -5,6 +5,7 @@ const NO_CLINIC = "none";
 const CLOUD_ROW_ID = "main";
 const CLOUD_CHUNK_SIZE = 180000;
 const DELETE_REPORT_PASSWORD = "2727Baseline!";
+const SKU_BATCH_GRAMS = 100;
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841317054095
@@ -26,6 +27,7 @@ const builderState = {
   apis: new Set(),
   materials: new Set(),
 };
+const expandedSkus = new Set();
 
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
@@ -1102,13 +1104,53 @@ function renderCostTables() {
     ? skuRows
         .slice()
         .sort((a, b) => a.formula.localeCompare(b.formula))
-        .map((item) => `<tr>
-          <td>${escapeHtml(item.formula || "")}</td>
+        .map((item) => {
+          const key = normalizeKey(item.formula);
+          const isExpanded = expandedSkus.has(key);
+          const ingredients = Array.isArray(item.ingredients) ? item.ingredients : [];
+          const detailRows = ingredients.length
+            ? ingredients
+                .map((ingredient) => `<tr>
+                  <td>${escapeHtml(ingredient.api || "")}</td>
+                  <td class="number">${number(ingredient.quantity)}</td>
+                  <td>${escapeHtml(ingredient.units || "")}</td>
+                  <td class="number">${money(ingredient.total)}</td>
+                  <td class="number">${money(ingredient.unitCost)}</td>
+                </tr>`)
+                .join("")
+            : `<tr><td class="empty" colspan="5">No ingredient detail saved for this SKU.</td></tr>`;
+          return `<tr>
+          <td>
+            <button class="link-toggle" data-toggle-sku="${key}" type="button" aria-expanded="${isExpanded}">
+              <span>${isExpanded ? "v" : ">"}</span>
+              ${escapeHtml(item.formula || "")}
+            </button>
+          </td>
           <td class="number">${money(item.total)}</td>
           <td class="number">${money(item.unitCost)}</td>
-        </tr>`)
+          <td class="number">${money(item.costPerGram)}</td>
+        </tr>
+        ${isExpanded ? `<tr class="sku-detail-row">
+          <td colspan="4">
+            <div class="sku-detail">
+              <table>
+                <thead>
+                  <tr>
+                    <th>API / Ingredient</th>
+                    <th class="number">Quantity</th>
+                    <th>Units</th>
+                    <th class="number">Total Cost</th>
+                    <th class="number">Unit Cost</th>
+                  </tr>
+                </thead>
+                <tbody>${detailRows}</tbody>
+              </table>
+            </div>
+          </td>
+        </tr>` : ""}`;
+        })
         .join("")
-    : `<tr><td class="empty" colspan="3">Upload SKU cost data to see complete formula costs.</td></tr>`;
+    : `<tr><td class="empty" colspan="4">Upload SKU cost data to see complete formula costs.</td></tr>`;
 
   els.materialCostTable.innerHTML = state.materialCosts.length
     ? state.materialCosts
@@ -1231,12 +1273,15 @@ function normalizeSkuCosts(rows) {
     const formula = textValue(row, ["SKU", "SKU Name", "Formula", "Formula Name", "Product", "Name"]);
     const total = amountValue(row, ["Total", "Totals", "Cost", "SKU Cost", "Formula Cost", "Price"]);
     const unitCost = amountValue(row, ["Unit Cost", "Cost Per Unit"]);
+    const costPerGram = amountValue(row, ["Cost Per Gram", "Cost / Gram", "Per Gram"]) || total / SKU_BATCH_GRAMS;
     if (!formula || (!total && !unitCost)) return [];
     return [{
       id: crypto.randomUUID(),
       formula,
       total,
       unitCost,
+      costPerGram,
+      ingredients: [],
     }];
   });
 }
@@ -1255,6 +1300,8 @@ function normalizeFormulaSheet(rows) {
         formula,
         total: 0,
         unitCost: 0,
+        costPerGram: 0,
+        ingredients: [],
       });
     }
     return formulas.get(key);
@@ -1292,14 +1339,27 @@ function normalizeFormulaSheet(rows) {
 
     const total = parseAmount(fourth);
     const unitCost = parseAmount(fifth);
+    const quantity = parseAmount(second);
     if (!total && !unitCost) return;
 
     const record = ensureFormula(currentFormula);
     record.total += total;
     record.unitCost += unitCost;
+    record.ingredients.push({
+      api: first,
+      quantity,
+      units: third,
+      total,
+      unitCost,
+    });
   });
 
-  return [...formulas.values()].filter((record) => record.total || record.unitCost);
+  return [...formulas.values()]
+    .filter((record) => record.total || record.unitCost)
+    .map((record) => ({
+      ...record,
+      costPerGram: record.total / SKU_BATCH_GRAMS,
+    }));
 }
 
 function normalizeMaterialCosts(rows) {
@@ -1346,13 +1406,28 @@ function skuSummaryRows() {
     if (!formula) return;
     const key = normalizeKey(formula);
     if (!byFormula.has(key)) {
-      byFormula.set(key, { formula, total: 0, unitCost: 0 });
+      byFormula.set(key, { formula, total: 0, unitCost: 0, costPerGram: 0, ingredients: [] });
     }
     const record = byFormula.get(key);
     record.total += parseAmount(item.total);
     record.unitCost += parseAmount(item.unitCost);
+    record.costPerGram += parseAmount(item.costPerGram);
+    if (Array.isArray(item.ingredients) && item.ingredients.length) {
+      record.ingredients.push(...item.ingredients);
+    } else if (item.api) {
+      record.ingredients.push({
+        api: item.api,
+        quantity: parseAmount(item.quantity),
+        units: item.units || "",
+        total: parseAmount(item.total),
+        unitCost: parseAmount(item.unitCost),
+      });
+    }
   });
-  return [...byFormula.values()];
+  return [...byFormula.values()].map((record) => ({
+    ...record,
+    costPerGram: record.costPerGram || record.total / SKU_BATCH_GRAMS,
+  }));
 }
 
 function findSheet(sheets, candidates) {
@@ -1490,6 +1565,17 @@ document.addEventListener("click", (event) => {
   const addMaterialId = event.target.dataset?.addMaterial;
   const removeApiId = event.target.dataset?.removeApi;
   const removeMaterialId = event.target.dataset?.removeMaterial;
+  const toggleSkuId = event.target.closest("[data-toggle-sku]")?.dataset?.toggleSku;
+
+  if (toggleSkuId) {
+    if (expandedSkus.has(toggleSkuId)) {
+      expandedSkus.delete(toggleSkuId);
+    } else {
+      expandedSkus.add(toggleSkuId);
+    }
+    renderCostTables();
+    return;
+  }
 
   if (addApiId) {
     builderState.apis.add(addApiId);
@@ -1726,6 +1812,8 @@ els.manualSkuForm.addEventListener("submit", async (event) => {
     formula,
     total,
     unitCost,
+    costPerGram: total / SKU_BATCH_GRAMS,
+    ingredients: [],
   }]);
   els.manualSkuStatus.textContent = `Saved SKU ${formula}.`;
   els.manualSkuForm.reset();

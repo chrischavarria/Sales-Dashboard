@@ -673,6 +673,48 @@ th.number {
   text-align: right;
 }
 
+.link-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: auto;
+  padding: 0;
+  color: var(--navy);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.link-toggle span {
+  width: 14px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.sku-detail-row td {
+  padding: 0;
+  background: var(--surface-soft);
+}
+
+.sku-detail {
+  padding: 12px 14px 16px 42px;
+}
+
+.sku-detail table {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sku-detail th,
+.sku-detail td {
+  background: var(--surface);
+  font-size: 0.8rem;
+}
+
 tbody tr:last-child td {
   border-bottom: 0;
 }
