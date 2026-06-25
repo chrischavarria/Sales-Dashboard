@@ -31,7 +31,8 @@
       <button class="tab-button" data-tab="api" type="button">API Cost</button>
       <button class="tab-button" data-tab="material" type="button">Material Cost</button>
       <button class="tab-button" data-tab="sku" type="button">SKU Cost</button>
-      <button class="tab-button" data-tab="cogs" type="button">COGS / Profitability</button>
+      <button class="tab-button" data-tab="assumptions" type="button">Assumptions</button>
+      <button class="tab-button" data-tab="profitability" type="button">Profitability</button>
     </nav>
 
     <main class="shell">
@@ -638,98 +639,26 @@
         </div>
       </section>
 
-      <section id="cogsView" class="dashboard app-private tab-view" data-tab-view="cogs" aria-label="COGS and profitability">
+      <section id="assumptionsView" class="dashboard app-private tab-view" data-tab-view="assumptions" aria-label="Assumptions">
         <section class="panel filters-panel">
           <div class="panel-heading">
-            <h2>COGS / Profitability</h2>
-            <span>Revenue, COGS, inventory, and margins</span>
+            <h2>Assumptions</h2>
+            <span>Labor, overhead, QA, packaging, waste</span>
           </div>
           <form id="cogsWorkbookForm" class="pricing-upload">
             <label>
-              Upload COGS workbook
+              Import assumptions from workbook
               <input id="cogsWorkbookFile" type="file" accept=".xlsx,.xls">
             </label>
-            <button type="submit">Import COGS Model</button>
+            <button type="submit">Import Workbook</button>
           </form>
           <p id="cogsWorkbookStatus" class="status" role="status"></p>
         </section>
 
-        <section class="overview">
-          <p class="section-label">Profitability Overview</p>
-          <div class="metric-grid">
-            <article class="metric accent-indigo">
-              <span>Total Revenue</span>
-              <strong id="cogsTotalRevenue">$0</strong>
-            </article>
-            <article class="metric">
-              <span>Total COGS</span>
-              <strong id="cogsTotalCogs">$0</strong>
-            </article>
-            <article class="metric accent-sage">
-              <span>Gross Profit</span>
-              <strong id="cogsGrossProfit">$0</strong>
-            </article>
-            <article class="metric">
-              <span>Gross Margin</span>
-              <strong id="cogsGrossMargin">0%</strong>
-            </article>
-            <article class="metric">
-              <span>Inventory Value</span>
-              <strong id="cogsInventoryValue">$0</strong>
-            </article>
-            <article class="metric">
-              <span>Expiry Risk</span>
-              <strong id="cogsExpiryRisk">$0</strong>
-            </article>
-          </div>
-        </section>
-
-        <div class="chart-grid">
-          <section class="table-panel">
-            <div class="panel-heading">
-              <h2>Revenue Streams</h2>
-              <span>Rx vs contract</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Stream</th>
-                    <th class="number">Revenue</th>
-                    <th class="number">COGS</th>
-                    <th class="number">Gross Profit</th>
-                    <th class="number">Margin</th>
-                  </tr>
-                </thead>
-                <tbody id="cogsStreamTable"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="table-panel">
-            <div class="panel-heading">
-              <h2>Cost Breakdown</h2>
-              <span>Combined COGS categories</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Category</th>
-                    <th class="number">Amount</th>
-                    <th class="number">% of COGS</th>
-                  </tr>
-                </thead>
-                <tbody id="cogsBreakdownTable"></tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
         <section class="table-panel">
           <div class="panel-heading">
             <h2>Assumptions</h2>
-            <span>Labor, overhead, QA, packaging, waste</span>
+            <span>Used by the profitability calculator</span>
           </div>
           <form id="cogsAssumptionsForm" class="cogs-edit-form">
             <div id="cogsAssumptionFields" class="cogs-assumption-grid"></div>
@@ -750,169 +679,109 @@
             </table>
           </div>
         </section>
+      </section>
 
-        <section class="table-panel">
+      <section id="profitabilityView" class="dashboard app-private tab-view" data-tab-view="profitability" aria-label="Profitability">
+        <section class="panel filters-panel">
           <div class="panel-heading">
-            <h2>Inventory / Expiry</h2>
-            <span>Materials at risk and reorder status</span>
+            <h2>Profitability Builder</h2>
+            <span>SKU, APIs, materials, and assumptions</span>
           </div>
-          <form id="cogsInventoryForm" class="cogs-edit-form cogs-inventory-form">
+          <form id="profitabilityForm" class="cogs-edit-form profitability-form">
             <label>
-              Material ID
-              <input id="cogsMaterialId" type="text" placeholder="MAT-001">
-            </label>
-            <label>
-              Material name
-              <input id="cogsMaterialName" type="text" placeholder="Ketoprofen USP">
-            </label>
-            <label>
-              Type
-              <input id="cogsMaterialType" type="text" placeholder="API">
-            </label>
-            <label>
-              UOM
-              <input id="cogsMaterialUnit" type="text" placeholder="g">
-            </label>
-            <label>
-              Qty on hand
-              <input id="cogsMaterialQty" type="number" min="0" step="0.0001" placeholder="0">
-            </label>
-            <label>
-              Reorder point
-              <input id="cogsMaterialReorder" type="number" min="0" step="0.0001" placeholder="0">
-            </label>
-            <label>
-              Unit cost
-              <input id="cogsMaterialUnitCost" type="number" min="0" step="0.0001" placeholder="0.00">
-            </label>
-            <label>
-              Vendor
-              <input id="cogsMaterialVendor" type="text" placeholder="Vendor">
-            </label>
-            <label>
-              Lot
-              <input id="cogsMaterialLot" type="text" placeholder="Lot number">
-            </label>
-            <label>
-              BUD / Expiry
-              <input id="cogsMaterialExpiry" type="date">
-            </label>
-            <button type="submit">Save Material</button>
-          </form>
-          <p id="cogsInventoryStatus" class="status" role="status"></p>
-          <div class="table-wrap scroll-table tall">
-            <table>
-              <thead>
-                <tr>
-                  <th>Material</th>
-                  <th>Type</th>
-                  <th class="number">Qty</th>
-                  <th class="number">Unit Cost</th>
-                  <th class="number">Value</th>
-                  <th class="number">Days</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="cogsInventoryTable"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="table-panel">
-          <div class="panel-heading">
-            <h2>SKU Cost Registry</h2>
-            <span>Formula material cost per unit</span>
-          </div>
-          <form id="cogsSkuForm" class="cogs-edit-form cogs-sku-form">
-            <label>
-              SKU ID
-              <input id="cogsSkuId" type="text" placeholder="SKU-001">
-            </label>
-            <label>
-              Product name
-              <input id="cogsSkuProduct" type="text" placeholder="Formula name">
-            </label>
-            <label>
-              Type
-              <select id="cogsSkuType">
-                <option value="Rx">Rx</option>
-                <option value="Contract">Contract</option>
+              Stream
+              <select id="profitabilityStream">
+                <option value="rx">Rx</option>
+                <option value="contract">Contract</option>
               </select>
             </label>
             <label>
-              Dosage form
-              <input id="cogsSkuDosage" type="text" placeholder="Cream/Gel">
+              SKU
+              <select id="profitabilitySku"></select>
             </label>
             <label>
-              Batch size
-              <input id="cogsSkuBatchSize" type="number" min="0" step="0.0001" placeholder="100">
+              Quantity / units
+              <input id="profitabilityQuantity" type="number" min="0" step="0.0001" placeholder="0">
             </label>
             <label>
-              Batch UOM
-              <input id="cogsSkuBatchUnit" type="text" placeholder="g">
+              Selling price
+              <input id="profitabilityRevenue" type="number" min="0" step="0.0001" placeholder="0.00">
             </label>
             <label>
-              Units / batch
-              <input id="cogsSkuUnitsPerBatch" type="number" min="0" step="0.0001" placeholder="100">
+              Direct labor hours
+              <input id="profitabilityLaborHours" type="number" min="0" step="0.0001" placeholder="0">
             </label>
-            <label class="wide-field">
-              Ingredients
-              <textarea id="cogsSkuIngredients" rows="3" placeholder="MAT-001, 10&#10;MAT-006, 90"></textarea>
+            <label>
+              Add API
+              <select id="profitabilityApi"></select>
             </label>
-            <button type="submit">Save SKU</button>
+            <button id="profitabilityAddApi" class="ghost" type="button">Add API</button>
+            <label>
+              Add Material
+              <select id="profitabilityMaterial"></select>
+            </label>
+            <button id="profitabilityAddMaterial" class="ghost" type="button">Add Material</button>
+            <button type="submit">Calculate Margin</button>
           </form>
-          <p id="cogsSkuStatus" class="status" role="status"></p>
-          <div class="table-wrap scroll-table tall">
-            <table>
-              <thead>
-                <tr>
-                  <th>SKU</th>
-                  <th>Product</th>
-                  <th>Type</th>
-                  <th class="number">Batch Cost</th>
-                  <th class="number">Units / Batch</th>
-                  <th class="number">Cost / Unit</th>
-                </tr>
-              </thead>
-              <tbody id="cogsSkuTable"></tbody>
-            </table>
+          <p id="profitabilityStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="overview">
+          <p class="section-label">Modeled Margin</p>
+          <div class="metric-grid">
+            <article class="metric accent-indigo">
+              <span>Revenue</span>
+              <strong id="profitRevenue">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Total COGS</span>
+              <strong id="profitCogs">$0</strong>
+            </article>
+            <article class="metric accent-sage">
+              <span>Gross Profit</span>
+              <strong id="profitGrossProfit">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Gross Margin</span>
+              <strong id="profitGrossMargin">0%</strong>
+            </article>
           </div>
         </section>
 
         <div class="chart-grid">
           <section class="table-panel">
             <div class="panel-heading">
-              <h2>Rx Profitability</h2>
-              <span>Patient names are not stored</span>
+              <h2>Selected Costs</h2>
+              <span>SKU plus added API/material costs</span>
             </div>
-            <form id="cogsRxForm" class="cogs-edit-form cogs-rx-form">
-              <label>
-                Rx #
-                <input id="cogsRxId" type="text" placeholder="RX-0001">
-              </label>
-              <label>
-                Date
-                <input id="cogsRxDate" type="date">
-              </label>
-              <label>
-                SKU ID
-                <input id="cogsRxSku" type="text" placeholder="SKU-001">
-              </label>
-              <label>
-                Qty dispensed
-                <input id="cogsRxQty" type="number" min="0" step="0.0001" placeholder="0">
-              </label>
-              <label>
-                Selling price
-                <input id="cogsRxRevenue" type="number" min="0" step="0.0001" placeholder="0.00">
-              </label>
-              <label>
-                DL hours
-                <input id="cogsRxLaborHours" type="number" min="0" step="0.0001" placeholder="0">
-              </label>
-              <button type="submit">Save Rx</button>
-            </form>
-            <p id="cogsRxStatus" class="status" role="status"></p>
+            <div class="builder-list" id="profitabilitySelections"></div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>COGS Breakdown</h2>
+              <span>Assumption-driven calculation</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th class="number">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="profitBreakdownTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Rx Profitability</h2>
+              <span>Imported or manually saved Rx rows</span>
+            </div>
             <div class="table-wrap scroll-table tall">
               <table>
                 <thead>
@@ -934,40 +803,8 @@
           <section class="table-panel">
             <div class="panel-heading">
               <h2>Contract Profitability</h2>
-              <span>Bulk order margins</span>
+              <span>Imported or manually saved contract rows</span>
             </div>
-            <form id="cogsContractForm" class="cogs-edit-form cogs-contract-form">
-              <label>
-                Order #
-                <input id="cogsContractId" type="text" placeholder="CON-0001">
-              </label>
-              <label>
-                Date
-                <input id="cogsContractDate" type="date">
-              </label>
-              <label>
-                Client / facility
-                <input id="cogsContractClient" type="text" placeholder="Client">
-              </label>
-              <label>
-                SKU ID
-                <input id="cogsContractSku" type="text" placeholder="SKU-001">
-              </label>
-              <label>
-                Units ordered
-                <input id="cogsContractUnits" type="number" min="0" step="0.0001" placeholder="0">
-              </label>
-              <label>
-                Unit price
-                <input id="cogsContractUnitPrice" type="number" min="0" step="0.0001" placeholder="0.00">
-              </label>
-              <label>
-                DL hours
-                <input id="cogsContractLaborHours" type="number" min="0" step="0.0001" placeholder="0">
-              </label>
-              <button type="submit">Save Contract</button>
-            </form>
-            <p id="cogsContractStatus" class="status" role="status"></p>
             <div class="table-wrap scroll-table tall">
               <table>
                 <thead>

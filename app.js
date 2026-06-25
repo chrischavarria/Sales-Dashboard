@@ -67,6 +67,11 @@ const builderState = {
   materials: new Set(),
 };
 const expandedSkus = new Set();
+const profitabilityState = {
+  apis: new Set(),
+  materials: new Set(),
+  result: null,
+};
 
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
@@ -175,61 +180,29 @@ const els = {
   cogsWorkbookForm: document.querySelector("#cogsWorkbookForm"),
   cogsWorkbookFile: document.querySelector("#cogsWorkbookFile"),
   cogsWorkbookStatus: document.querySelector("#cogsWorkbookStatus"),
-  cogsTotalRevenue: document.querySelector("#cogsTotalRevenue"),
-  cogsTotalCogs: document.querySelector("#cogsTotalCogs"),
-  cogsGrossProfit: document.querySelector("#cogsGrossProfit"),
-  cogsGrossMargin: document.querySelector("#cogsGrossMargin"),
-  cogsInventoryValue: document.querySelector("#cogsInventoryValue"),
-  cogsExpiryRisk: document.querySelector("#cogsExpiryRisk"),
-  cogsStreamTable: document.querySelector("#cogsStreamTable"),
-  cogsBreakdownTable: document.querySelector("#cogsBreakdownTable"),
   cogsAssumptionsForm: document.querySelector("#cogsAssumptionsForm"),
   cogsAssumptionFields: document.querySelector("#cogsAssumptionFields"),
   cogsAssumptionsStatus: document.querySelector("#cogsAssumptionsStatus"),
   cogsAssumptionsTable: document.querySelector("#cogsAssumptionsTable"),
-  cogsInventoryForm: document.querySelector("#cogsInventoryForm"),
-  cogsMaterialId: document.querySelector("#cogsMaterialId"),
-  cogsMaterialName: document.querySelector("#cogsMaterialName"),
-  cogsMaterialType: document.querySelector("#cogsMaterialType"),
-  cogsMaterialUnit: document.querySelector("#cogsMaterialUnit"),
-  cogsMaterialQty: document.querySelector("#cogsMaterialQty"),
-  cogsMaterialReorder: document.querySelector("#cogsMaterialReorder"),
-  cogsMaterialUnitCost: document.querySelector("#cogsMaterialUnitCost"),
-  cogsMaterialVendor: document.querySelector("#cogsMaterialVendor"),
-  cogsMaterialLot: document.querySelector("#cogsMaterialLot"),
-  cogsMaterialExpiry: document.querySelector("#cogsMaterialExpiry"),
-  cogsInventoryStatus: document.querySelector("#cogsInventoryStatus"),
-  cogsInventoryTable: document.querySelector("#cogsInventoryTable"),
-  cogsSkuForm: document.querySelector("#cogsSkuForm"),
-  cogsSkuId: document.querySelector("#cogsSkuId"),
-  cogsSkuProduct: document.querySelector("#cogsSkuProduct"),
-  cogsSkuType: document.querySelector("#cogsSkuType"),
-  cogsSkuDosage: document.querySelector("#cogsSkuDosage"),
-  cogsSkuBatchSize: document.querySelector("#cogsSkuBatchSize"),
-  cogsSkuBatchUnit: document.querySelector("#cogsSkuBatchUnit"),
-  cogsSkuUnitsPerBatch: document.querySelector("#cogsSkuUnitsPerBatch"),
-  cogsSkuIngredients: document.querySelector("#cogsSkuIngredients"),
-  cogsSkuStatus: document.querySelector("#cogsSkuStatus"),
-  cogsSkuTable: document.querySelector("#cogsSkuTable"),
-  cogsRxForm: document.querySelector("#cogsRxForm"),
-  cogsRxId: document.querySelector("#cogsRxId"),
-  cogsRxDate: document.querySelector("#cogsRxDate"),
-  cogsRxSku: document.querySelector("#cogsRxSku"),
-  cogsRxQty: document.querySelector("#cogsRxQty"),
-  cogsRxRevenue: document.querySelector("#cogsRxRevenue"),
-  cogsRxLaborHours: document.querySelector("#cogsRxLaborHours"),
-  cogsRxStatus: document.querySelector("#cogsRxStatus"),
   cogsRxTable: document.querySelector("#cogsRxTable"),
-  cogsContractForm: document.querySelector("#cogsContractForm"),
-  cogsContractId: document.querySelector("#cogsContractId"),
-  cogsContractDate: document.querySelector("#cogsContractDate"),
-  cogsContractClient: document.querySelector("#cogsContractClient"),
-  cogsContractSku: document.querySelector("#cogsContractSku"),
-  cogsContractUnits: document.querySelector("#cogsContractUnits"),
-  cogsContractUnitPrice: document.querySelector("#cogsContractUnitPrice"),
-  cogsContractLaborHours: document.querySelector("#cogsContractLaborHours"),
-  cogsContractStatus: document.querySelector("#cogsContractStatus"),
   cogsContractTable: document.querySelector("#cogsContractTable"),
+  profitabilityForm: document.querySelector("#profitabilityForm"),
+  profitabilityStream: document.querySelector("#profitabilityStream"),
+  profitabilitySku: document.querySelector("#profitabilitySku"),
+  profitabilityQuantity: document.querySelector("#profitabilityQuantity"),
+  profitabilityRevenue: document.querySelector("#profitabilityRevenue"),
+  profitabilityLaborHours: document.querySelector("#profitabilityLaborHours"),
+  profitabilityApi: document.querySelector("#profitabilityApi"),
+  profitabilityAddApi: document.querySelector("#profitabilityAddApi"),
+  profitabilityMaterial: document.querySelector("#profitabilityMaterial"),
+  profitabilityAddMaterial: document.querySelector("#profitabilityAddMaterial"),
+  profitabilityStatus: document.querySelector("#profitabilityStatus"),
+  profitabilitySelections: document.querySelector("#profitabilitySelections"),
+  profitRevenue: document.querySelector("#profitRevenue"),
+  profitCogs: document.querySelector("#profitCogs"),
+  profitGrossProfit: document.querySelector("#profitGrossProfit"),
+  profitGrossMargin: document.querySelector("#profitGrossMargin"),
+  profitBreakdownTable: document.querySelector("#profitBreakdownTable"),
 };
 
 function loadState(sourceState) {
@@ -888,6 +861,9 @@ function renderOptions() {
     filterBrand: els.filterBrand.value,
     filterClinic: els.filterClinic.value,
     viewFilter: els.viewFilter.value,
+    profitabilitySku: els.profitabilitySku?.value,
+    profitabilityApi: els.profitabilityApi?.value,
+    profitabilityMaterial: els.profitabilityMaterial?.value,
   };
   const repOptions = state.reps
     .map((rep) => `<option value="${rep.id}">${escapeHtml(rep.name)} (${number(rep.rate)}%)</option>`)
@@ -906,6 +882,25 @@ function renderOptions() {
   els.viewFilter.innerHTML = `<option value="all">All uploads</option>${state.reports
     .map((report) => `<option value="${report.id}">${report.name}</option>`)
     .join("")}`;
+  if (els.profitabilitySku) {
+    const skuOptions = skuSummaryRows()
+      .sort((a, b) => a.formula.localeCompare(b.formula))
+      .map((sku) => `<option value="${escapeHtml(sku.formula)}">${escapeHtml(sku.formula)} (${money(sku.unitCost || sku.costPerGram)})</option>`)
+      .join("");
+    const apiOptions = state.apiCosts
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((api) => `<option value="${api.id}">${escapeHtml(api.name)} (${money(api.cost)})</option>`)
+      .join("");
+    const materialOptions = state.materialCosts
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((material) => `<option value="${material.id}">${escapeHtml(material.name)} (${money(material.cost)})</option>`)
+      .join("");
+    els.profitabilitySku.innerHTML = `<option value="">No SKU selected</option>${skuOptions}`;
+    els.profitabilityApi.innerHTML = apiOptions || `<option value="">No APIs saved</option>`;
+    els.profitabilityMaterial.innerHTML = materialOptions || `<option value="">No materials saved</option>`;
+  }
 
   restoreSelect(els.repSelect, current.repSelect, state.reps[0].id);
   restoreSelect(els.clinicRep, current.clinicRep, state.reps[0].id);
@@ -916,6 +911,11 @@ function renderOptions() {
   restoreSelect(els.filterBrand, current.filterBrand, "all");
   restoreSelect(els.filterClinic, current.filterClinic, "all");
   restoreSelect(els.viewFilter, current.viewFilter, "all");
+  if (els.profitabilitySku) {
+    restoreSelect(els.profitabilitySku, current.profitabilitySku, "");
+    restoreSelect(els.profitabilityApi, current.profitabilityApi, els.profitabilityApi.options[0]?.value || "");
+    restoreSelect(els.profitabilityMaterial, current.profitabilityMaterial, els.profitabilityMaterial.options[0]?.value || "");
+  }
   els.brandNoRep.checked = current.brandNoRep;
   els.clinicNoRep.checked = current.clinicNoRep;
   els.brandRep.disabled = els.brandNoRep.checked;
@@ -1368,108 +1368,28 @@ function renderPricing() {
 }
 
 function renderCogs() {
-  const summary = cogsSummary();
   const rxRows = state.cogs?.rxPrescriptions || [];
   const contractRows = state.cogs?.contractOrders || [];
-  const inventory = state.cogs?.inventory || [];
-  const skuRegistry = state.cogs?.skuRegistry || [];
   const assumptions = state.cogs?.assumptions || DEFAULT_COGS_ASSUMPTIONS;
 
-  els.cogsTotalRevenue.textContent = money(summary.totalRevenue);
-  els.cogsTotalCogs.textContent = money(summary.totalCogs);
-  els.cogsGrossProfit.textContent = money(summary.grossProfit);
-  els.cogsGrossMargin.textContent = percent(summary.grossMargin);
-  els.cogsInventoryValue.textContent = money(summary.inventoryValue);
-  els.cogsExpiryRisk.textContent = money(summary.expiryRisk);
+  if (els.cogsAssumptionFields) {
+    els.cogsAssumptionFields.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit]) => `<label>
+      ${escapeHtml(label)}
+      <input data-assumption="${key}" data-unit="${escapeHtml(unit)}" type="number" step="0.0001" value="${assumptionInputValue(key, assumptions[key])}">
+      <span>${escapeHtml(unit)}</span>
+    </label>`).join("");
+  }
 
-  const streams = [
-    ["Rx Prescriptions", summary.rxTotals],
-    ["Contract Orders", summary.contractTotals],
-    ["Combined", { revenue: summary.totalRevenue, totalCogs: summary.totalCogs, grossProfit: summary.grossProfit }],
-  ];
-  els.cogsStreamTable.innerHTML = summary.totalRevenue
-    ? streams.map(([label, totals]) => `<tr>
-        <td>${escapeHtml(label)}</td>
-        <td class="number">${money(totals.revenue)}</td>
-        <td class="number">${money(totals.totalCogs)}</td>
-        <td class="number">${money(totals.grossProfit)}</td>
-        <td class="number">${percent(totals.revenue ? totals.grossProfit / totals.revenue : 0)}</td>
-      </tr>`).join("")
-    : `<tr><td class="empty" colspan="5">Upload a COGS workbook to calculate revenue, COGS, and margin.</td></tr>`;
+  if (els.cogsAssumptionsTable) {
+    els.cogsAssumptionsTable.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit, notes]) => `<tr>
+      <td>${escapeHtml(label)}</td>
+      <td class="number">${unit === "%" ? percent(assumptions[key]) : number(assumptions[key])}</td>
+      <td>${escapeHtml(unit)}</td>
+      <td>${escapeHtml(notes)}</td>
+    </tr>`).join("");
+  }
 
-  const combinedCosts = {
-    materialCost: summary.rxTotals.materialCost + summary.contractTotals.materialCost,
-    directLabor: summary.rxTotals.directLabor + summary.contractTotals.directLabor,
-    indirectLabor: summary.rxTotals.indirectLabor + summary.contractTotals.indirectLabor,
-    qaCost: summary.rxTotals.qaCost + summary.contractTotals.qaCost,
-    packaging: summary.rxTotals.packaging + summary.contractTotals.packaging,
-    overhead: summary.rxTotals.overhead + summary.contractTotals.overhead,
-    waste: summary.rxTotals.waste + summary.contractTotals.waste,
-  };
-  const breakdownRows = [
-    ["Direct Materials", combinedCosts.materialCost],
-    ["Direct Labor", combinedCosts.directLabor],
-    ["Indirect Labor", combinedCosts.indirectLabor],
-    ["QA / Testing", combinedCosts.qaCost],
-    ["Packaging", combinedCosts.packaging],
-    ["Overhead", combinedCosts.overhead],
-    ["Waste / Spoilage", combinedCosts.waste],
-  ];
-  els.cogsBreakdownTable.innerHTML = summary.totalCogs
-    ? breakdownRows.map(([label, amount]) => `<tr>
-        <td>${escapeHtml(label)}</td>
-        <td class="number">${money(amount)}</td>
-        <td class="number">${percent(amount / summary.totalCogs)}</td>
-      </tr>`).join("")
-    : `<tr><td class="empty" colspan="3">Cost categories will appear after import.</td></tr>`;
-
-  els.cogsAssumptionFields.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit]) => `<label>
-    ${escapeHtml(label)}
-    <input data-assumption="${key}" data-unit="${escapeHtml(unit)}" type="number" step="0.0001" value="${assumptionInputValue(key, assumptions[key])}">
-    <span>${escapeHtml(unit)}</span>
-  </label>`).join("");
-
-  els.cogsAssumptionsTable.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit, notes]) => `<tr>
-    <td>${escapeHtml(label)}</td>
-    <td class="number">${unit === "%" ? percent(assumptions[key]) : number(assumptions[key])}</td>
-    <td>${escapeHtml(unit)}</td>
-    <td>${escapeHtml(notes)}</td>
-  </tr>`).join("");
-
-  els.cogsInventoryTable.innerHTML = inventory.length
-    ? inventory
-        .slice()
-        .sort((a, b) => {
-          const aDays = a.daysToExpiry ?? 999999;
-          const bDays = b.daysToExpiry ?? 999999;
-          return aDays - bDays;
-        })
-        .map((item) => `<tr>
-          <td>${escapeHtml(item.name)}</td>
-          <td>${escapeHtml(item.type)}</td>
-          <td class="number">${number(item.qtyOnHand)}</td>
-          <td class="number">${money(item.unitCost)}</td>
-          <td class="number">${money(item.totalValue)}</td>
-          <td class="number">${item.daysToExpiry === null ? "" : number(item.daysToExpiry)}</td>
-          <td><span class="status-chip ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-        </tr>`)
-        .join("")
-    : `<tr><td class="empty" colspan="7">Inventory rows will appear after import.</td></tr>`;
-
-  els.cogsSkuTable.innerHTML = skuRegistry.length
-    ? skuRegistry
-        .slice()
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map((sku) => `<tr>
-          <td>${escapeHtml(sku.id)}</td>
-          <td>${escapeHtml(sku.productName)}</td>
-          <td>${escapeHtml(sku.type)}</td>
-          <td class="number">${money(sku.batchCost)}</td>
-          <td class="number">${number(sku.unitsPerBatch)}</td>
-          <td class="number">${money(sku.unitCost)}</td>
-        </tr>`)
-        .join("")
-    : `<tr><td class="empty" colspan="6">SKU registry rows will appear after import.</td></tr>`;
+  renderProfitabilityBuilder();
 
   els.cogsRxTable.innerHTML = rxRows.length
     ? rxRows.map((row) => `<tr>
@@ -1513,6 +1433,98 @@ function normalizeAssumptionInput(key, value) {
   const amount = parseAmount(value);
   if (key === "indirectLaborRate" || key === "wasteFactor") return amount / 100;
   return amount;
+}
+
+function selectedProfitApis() {
+  return state.apiCosts.filter((item) => profitabilityState.apis.has(item.id));
+}
+
+function selectedProfitMaterials() {
+  return state.materialCosts.filter((item) => profitabilityState.materials.has(item.id));
+}
+
+function selectedProfitSku() {
+  const formula = els.profitabilitySku?.value || "";
+  return skuSummaryRows().find((item) => normalizeKey(item.formula) === normalizeKey(formula)) || null;
+}
+
+function calculateProfitabilityScenario() {
+  const assumptions = state.cogs?.assumptions || DEFAULT_COGS_ASSUMPTIONS;
+  const stream = els.profitabilityStream?.value || "rx";
+  const quantity = parseAmount(els.profitabilityQuantity?.value);
+  const revenue = parseAmount(els.profitabilityRevenue?.value);
+  const laborHours = parseAmount(els.profitabilityLaborHours?.value);
+  const sku = selectedProfitSku();
+  const extraApis = selectedProfitApis();
+  const extraMaterials = selectedProfitMaterials();
+  const skuUnitCost = parseAmount(sku?.unitCost || sku?.costPerGram);
+  const directMaterials = quantity * skuUnitCost + sum(extraApis, "cost") + sum(extraMaterials, "cost");
+  const directLabor = laborHours * (stream === "contract" ? assumptions.contractLaborRate : assumptions.rxLaborRate);
+  const indirectLabor = directLabor * assumptions.indirectLaborRate;
+  const qaCost = stream === "contract" ? quantity * assumptions.qaContract : assumptions.qaRx;
+  const packaging = quantity * (stream === "contract" ? assumptions.packagingContract : assumptions.packagingRx);
+  const overheadBase = cogsOverheadTotal(assumptions);
+  const overhead = stream === "contract"
+    ? quantity * overheadBase / (assumptions.contractOverheadUnits || 1)
+    : overheadBase / (assumptions.rxOverheadUnits || 1);
+  const waste = directMaterials * assumptions.wasteFactor;
+  const totalCogs = directMaterials + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
+  const grossProfit = revenue - totalCogs;
+  return {
+    stream,
+    sku,
+    quantity,
+    revenue,
+    directMaterials,
+    directLabor,
+    indirectLabor,
+    qaCost,
+    packaging,
+    overhead,
+    waste,
+    totalCogs,
+    grossProfit,
+    grossMargin: revenue ? grossProfit / revenue : 0,
+  };
+}
+
+function renderProfitabilityBuilder() {
+  if (!els.profitRevenue) return;
+  const result = profitabilityState.result || calculateProfitabilityScenario();
+  els.profitRevenue.textContent = money(result.revenue);
+  els.profitCogs.textContent = money(result.totalCogs);
+  els.profitGrossProfit.textContent = money(result.grossProfit);
+  els.profitGrossMargin.textContent = percent(result.grossMargin);
+
+  const selectedItems = [
+    ...(result.sku ? [{ id: "sku", name: result.sku.formula, kind: "SKU", cost: parseAmount(result.sku.unitCost || result.sku.costPerGram), unit: "unit" }] : []),
+    ...selectedProfitApis().map((item) => ({ ...item, kind: "API", removeAttr: "data-remove-profit-api" })),
+    ...selectedProfitMaterials().map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-profit-material" })),
+  ];
+  els.profitabilitySelections.innerHTML = selectedItems.length
+    ? selectedItems.map((item) => `<div class="builder-item">
+        <div>
+          <strong>${escapeHtml(item.name)}</strong>
+          <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}</span>
+        </div>
+        <span>${money(item.cost)}</span>
+        ${item.removeAttr ? `<button class="small danger" ${item.removeAttr}="${item.id}" type="button">Remove</button>` : "<span></span>"}
+      </div>`).join("")
+    : `<div class="empty">Select a SKU or add APIs/materials to model profitability.</div>`;
+
+  const rows = [
+    ["Direct Materials", result.directMaterials],
+    ["Direct Labor", result.directLabor],
+    ["Indirect Labor", result.indirectLabor],
+    ["QA / Testing", result.qaCost],
+    ["Packaging", result.packaging],
+    ["Overhead", result.overhead],
+    ["Waste / Spoilage", result.waste],
+  ];
+  els.profitBreakdownTable.innerHTML = rows.map(([label, amount]) => `<tr>
+    <td>${escapeHtml(label)}</td>
+    <td class="number">${money(amount)}</td>
+  </tr>`).join("");
 }
 
 function render() {
@@ -2245,6 +2257,8 @@ document.addEventListener("click", (event) => {
   const removeApiId = event.target.dataset?.removeApi;
   const removeMaterialId = event.target.dataset?.removeMaterial;
   const toggleSkuId = event.target.closest("[data-toggle-sku]")?.dataset?.toggleSku;
+  const removeProfitApiId = event.target.dataset?.removeProfitApi;
+  const removeProfitMaterialId = event.target.dataset?.removeProfitMaterial;
 
   if (toggleSkuId) {
     if (expandedSkus.has(toggleSkuId)) {
@@ -2253,6 +2267,20 @@ document.addEventListener("click", (event) => {
       expandedSkus.add(toggleSkuId);
     }
     renderCostTables();
+    return;
+  }
+
+  if (removeProfitApiId) {
+    profitabilityState.apis.delete(removeProfitApiId);
+    profitabilityState.result = calculateProfitabilityScenario();
+    renderProfitabilityBuilder();
+    return;
+  }
+
+  if (removeProfitMaterialId) {
+    profitabilityState.materials.delete(removeProfitMaterialId);
+    profitabilityState.result = calculateProfitabilityScenario();
+    renderProfitabilityBuilder();
     return;
   }
 
@@ -2433,7 +2461,7 @@ els.pricingWorkbookForm.addEventListener("submit", async (event) => {
   }
 });
 
-els.cogsWorkbookForm.addEventListener("submit", async (event) => {
+els.cogsWorkbookForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await importCogsWorkbook(els.cogsWorkbookFile.files[0]);
@@ -2443,7 +2471,7 @@ els.cogsWorkbookForm.addEventListener("submit", async (event) => {
   }
 });
 
-els.cogsAssumptionsForm.addEventListener("submit", async (event) => {
+els.cogsAssumptionsForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.cogsAssumptionsStatus))) return;
   els.cogsAssumptionFields.querySelectorAll("[data-assumption]").forEach((input) => {
@@ -2452,7 +2480,7 @@ els.cogsAssumptionsForm.addEventListener("submit", async (event) => {
   await finishCogsManualSave(els.cogsAssumptionsStatus, "Saved assumptions and recalculated COGS.");
 });
 
-els.cogsInventoryForm.addEventListener("submit", async (event) => {
+els.cogsInventoryForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.cogsInventoryStatus))) return;
   const id = els.cogsMaterialId.value.trim();
@@ -2477,7 +2505,7 @@ els.cogsInventoryForm.addEventListener("submit", async (event) => {
   await finishCogsManualSave(els.cogsInventoryStatus, `Saved material ${id}.`);
 });
 
-els.cogsSkuForm.addEventListener("submit", async (event) => {
+els.cogsSkuForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.cogsSkuStatus))) return;
   const id = els.cogsSkuId.value.trim();
@@ -2501,7 +2529,7 @@ els.cogsSkuForm.addEventListener("submit", async (event) => {
   await finishCogsManualSave(els.cogsSkuStatus, `Saved SKU ${id}.`);
 });
 
-els.cogsRxForm.addEventListener("submit", async (event) => {
+els.cogsRxForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.cogsRxStatus))) return;
   const id = els.cogsRxId.value.trim();
@@ -2522,7 +2550,7 @@ els.cogsRxForm.addEventListener("submit", async (event) => {
   await finishCogsManualSave(els.cogsRxStatus, `Saved Rx ${id}.`);
 });
 
-els.cogsContractForm.addEventListener("submit", async (event) => {
+els.cogsContractForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!(await requireCloudReady(els.cogsContractStatus))) return;
   const id = els.cogsContractId.value.trim();
@@ -2542,6 +2570,27 @@ els.cogsContractForm.addEventListener("submit", async (event) => {
   });
   els.cogsContractForm.reset();
   await finishCogsManualSave(els.cogsContractStatus, `Saved contract ${id}.`);
+});
+
+els.profitabilityAddApi?.addEventListener("click", () => {
+  const id = els.profitabilityApi.value;
+  if (id) profitabilityState.apis.add(id);
+  profitabilityState.result = calculateProfitabilityScenario();
+  renderProfitabilityBuilder();
+});
+
+els.profitabilityAddMaterial?.addEventListener("click", () => {
+  const id = els.profitabilityMaterial.value;
+  if (id) profitabilityState.materials.add(id);
+  profitabilityState.result = calculateProfitabilityScenario();
+  renderProfitabilityBuilder();
+});
+
+els.profitabilityForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  profitabilityState.result = calculateProfitabilityScenario();
+  els.profitabilityStatus.textContent = `Calculated ${els.profitabilityStream.value === "contract" ? "contract" : "Rx"} profitability.`;
+  renderProfitabilityBuilder();
 });
 
 els.manualApiForm.addEventListener("submit", async (event) => {
