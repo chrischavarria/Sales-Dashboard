@@ -2086,6 +2086,22 @@ async function importCostFile({ file, normalizer, collection, statusEl, label })
   if (cloudReady) await saveCloudState();
 }
 
+async function importApiCostFile(file) {
+  if (!file) {
+    els.apiCostStatus.textContent = "Choose an API cost file first.";
+    return;
+  }
+  if (!(await requireCloudReady(els.apiCostStatus))) return;
+
+  const sheets = await readWorkbook(file);
+  const apiRows = findSheet(sheets, ["DRUGS", "Drugs", "API", "API Cost"]) || Object.values(sheets)[0] || [];
+  const records = normalizeApiCosts(apiRows);
+  upsertCosts("apiCosts", records);
+  els.apiCostStatus.textContent = `Imported ${records.length} API cost records.`;
+  render();
+  if (cloudReady) await saveCloudState();
+}
+
 async function importPricingWorkbook(file) {
   if (!file) {
     els.pricingWorkbookStatus.textContent = "Choose a pricing workbook first.";
@@ -2438,13 +2454,7 @@ document.querySelectorAll(".tab-button").forEach((button) => {
 els.apiCostForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await importCostFile({
-      file: els.apiCostFile.files[0],
-      normalizer: normalizeApiCosts,
-      collection: "apiCosts",
-      statusEl: els.apiCostStatus,
-      label: "API cost",
-    });
+    await importApiCostFile(els.apiCostFile.files[0]);
     els.apiCostFile.value = "";
   } catch (error) {
     els.apiCostStatus.textContent = `API import failed: ${error.message}`;
