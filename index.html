@@ -31,6 +31,7 @@
       <button class="tab-button" data-tab="api" type="button">API Cost</button>
       <button class="tab-button" data-tab="material" type="button">Material Cost</button>
       <button class="tab-button" data-tab="sku" type="button">SKU Cost</button>
+      <button class="tab-button" data-tab="cogs" type="button">COGS / Profitability</button>
     </nav>
 
     <main class="shell">
@@ -633,6 +634,208 @@
             </div>
             <div class="builder-list" id="materialBuilderSelections"></div>
             <button id="materialClearBuilderBtn" class="ghost" type="button">Clear Builder</button>
+          </section>
+        </div>
+      </section>
+
+      <section id="cogsView" class="dashboard app-private tab-view" data-tab-view="cogs" aria-label="COGS and profitability">
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <h2>COGS / Profitability</h2>
+            <span>Revenue, COGS, inventory, and margins</span>
+          </div>
+          <form id="cogsWorkbookForm" class="pricing-upload">
+            <label>
+              Upload COGS workbook
+              <input id="cogsWorkbookFile" type="file" accept=".xlsx,.xls">
+            </label>
+            <button type="submit">Import COGS Model</button>
+          </form>
+          <p id="cogsWorkbookStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="overview">
+          <p class="section-label">Profitability Overview</p>
+          <div class="metric-grid">
+            <article class="metric accent-indigo">
+              <span>Total Revenue</span>
+              <strong id="cogsTotalRevenue">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Total COGS</span>
+              <strong id="cogsTotalCogs">$0</strong>
+            </article>
+            <article class="metric accent-sage">
+              <span>Gross Profit</span>
+              <strong id="cogsGrossProfit">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Gross Margin</span>
+              <strong id="cogsGrossMargin">0%</strong>
+            </article>
+            <article class="metric">
+              <span>Inventory Value</span>
+              <strong id="cogsInventoryValue">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Expiry Risk</span>
+              <strong id="cogsExpiryRisk">$0</strong>
+            </article>
+          </div>
+        </section>
+
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Revenue Streams</h2>
+              <span>Rx vs contract</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Stream</th>
+                    <th class="number">Revenue</th>
+                    <th class="number">COGS</th>
+                    <th class="number">Gross Profit</th>
+                    <th class="number">Margin</th>
+                  </tr>
+                </thead>
+                <tbody id="cogsStreamTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Cost Breakdown</h2>
+              <span>Combined COGS categories</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th class="number">Amount</th>
+                    <th class="number">% of COGS</th>
+                  </tr>
+                </thead>
+                <tbody id="cogsBreakdownTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Assumptions</h2>
+            <span>Labor, overhead, QA, packaging, waste</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Assumption</th>
+                  <th class="number">Value</th>
+                  <th>Unit</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="cogsAssumptionsTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Inventory / Expiry</h2>
+            <span>Materials at risk and reorder status</span>
+          </div>
+          <div class="table-wrap scroll-table tall">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Type</th>
+                  <th class="number">Qty</th>
+                  <th class="number">Unit Cost</th>
+                  <th class="number">Value</th>
+                  <th class="number">Days</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="cogsInventoryTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>SKU Cost Registry</h2>
+            <span>Formula material cost per unit</span>
+          </div>
+          <div class="table-wrap scroll-table tall">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Product</th>
+                  <th>Type</th>
+                  <th class="number">Batch Cost</th>
+                  <th class="number">Units / Batch</th>
+                  <th class="number">Cost / Unit</th>
+                </tr>
+              </thead>
+              <tbody id="cogsSkuTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="chart-grid">
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Rx Profitability</h2>
+              <span>Patient names are not stored</span>
+            </div>
+            <div class="table-wrap scroll-table tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rx #</th>
+                    <th>Date</th>
+                    <th>SKU</th>
+                    <th class="number">Revenue</th>
+                    <th class="number">COGS</th>
+                    <th class="number">Profit</th>
+                    <th class="number">Margin</th>
+                  </tr>
+                </thead>
+                <tbody id="cogsRxTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-heading">
+              <h2>Contract Profitability</h2>
+              <span>Bulk order margins</span>
+            </div>
+            <div class="table-wrap scroll-table tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>SKU</th>
+                    <th class="number">Revenue</th>
+                    <th class="number">COGS</th>
+                    <th class="number">Margin</th>
+                  </tr>
+                </thead>
+                <tbody id="cogsContractTable"></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>

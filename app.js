@@ -6,6 +6,45 @@ const CLOUD_ROW_ID = "main";
 const CLOUD_CHUNK_SIZE = 180000;
 const DELETE_REPORT_PASSWORD = "2727Baseline!";
 const SKU_BATCH_GRAMS = 100;
+const EXPIRY_WARNING_DAYS = 30;
+
+const DEFAULT_COGS_ASSUMPTIONS = {
+  rxLaborRate: 28,
+  contractLaborRate: 25,
+  indirectLaborRate: 0.6,
+  monthlyRent: 6500,
+  monthlyUtilities: 6500,
+  monthlyDepreciation: 1200,
+  monthlyMarketing: 500,
+  monthlySoftware: 800,
+  monthlyOther: 100000,
+  rxOverheadUnits: 8400,
+  contractOverheadUnits: 42500,
+  wasteFactor: 0.01,
+  qaRx: 8,
+  qaContract: 3,
+  packagingRx: 8,
+  packagingContract: 9.36,
+};
+
+const COGS_ASSUMPTION_ROWS = [
+  ["rxLaborRate", "Direct Labor - Rx", "$/hr", "Avg wage incl. benefits for compounding tech - Rx"],
+  ["contractLaborRate", "Direct Labor - Contract", "$/hr", "Avg wage incl. benefits for compounding tech - Contract"],
+  ["indirectLaborRate", "Indirect Labor Rate", "% of direct labor", "Supervisors, QA, admin as % of direct labor"],
+  ["monthlyRent", "Overhead - Monthly Rent", "$", "Facility rent"],
+  ["monthlyUtilities", "Overhead - Monthly Utilities", "$", "Electricity, water, HVAC"],
+  ["monthlyDepreciation", "Overhead - Monthly Depreciation", "$", "Equipment depreciation"],
+  ["monthlyMarketing", "Overhead - Monthly Marketing", "$", "Marketing spend"],
+  ["monthlySoftware", "Overhead - Monthly Software/License", "$", "Pharmacy software and licenses"],
+  ["monthlyOther", "Overhead - Other Monthly", "$", "Miscellaneous overhead"],
+  ["rxOverheadUnits", "Overhead Allocation - Rx Units/Month", "units", "Expected Rx prescriptions per month"],
+  ["contractOverheadUnits", "Overhead Allocation - Contract Units/Month", "units", "Expected contract units per month"],
+  ["wasteFactor", "Waste / Spoilage Factor", "%", "Material waste as % of material cost"],
+  ["qaRx", "QA / Testing Cost per Batch - Rx", "$", "Lab testing per Rx prescription"],
+  ["qaContract", "QA / Testing Cost per Batch - Contract", "$", "Lab testing per contract unit"],
+  ["packagingRx", "Packaging Cost per Unit - Rx", "$", "Labels, bags, vials for Rx"],
+  ["packagingContract", "Packaging Cost per Unit - Contract", "$", "Labels, bags, vials for contract"],
+];
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
 Rose MedSpa and Wellness,3.00,TV3 TIRZEPATIDE/VITAMIN B6 (3ML),250.00,20.89,,,1ZH4V7841317054095
@@ -133,6 +172,22 @@ const els = {
   materialBuilderGrandTotal: document.querySelector("#materialBuilderGrandTotal"),
   materialBuilderSelections: document.querySelector("#materialBuilderSelections"),
   materialClearBuilderBtn: document.querySelector("#materialClearBuilderBtn"),
+  cogsWorkbookForm: document.querySelector("#cogsWorkbookForm"),
+  cogsWorkbookFile: document.querySelector("#cogsWorkbookFile"),
+  cogsWorkbookStatus: document.querySelector("#cogsWorkbookStatus"),
+  cogsTotalRevenue: document.querySelector("#cogsTotalRevenue"),
+  cogsTotalCogs: document.querySelector("#cogsTotalCogs"),
+  cogsGrossProfit: document.querySelector("#cogsGrossProfit"),
+  cogsGrossMargin: document.querySelector("#cogsGrossMargin"),
+  cogsInventoryValue: document.querySelector("#cogsInventoryValue"),
+  cogsExpiryRisk: document.querySelector("#cogsExpiryRisk"),
+  cogsStreamTable: document.querySelector("#cogsStreamTable"),
+  cogsBreakdownTable: document.querySelector("#cogsBreakdownTable"),
+  cogsAssumptionsTable: document.querySelector("#cogsAssumptionsTable"),
+  cogsInventoryTable: document.querySelector("#cogsInventoryTable"),
+  cogsSkuTable: document.querySelector("#cogsSkuTable"),
+  cogsRxTable: document.querySelector("#cogsRxTable"),
+  cogsContractTable: document.querySelector("#cogsContractTable"),
 };
 
 function loadState(sourceState) {
@@ -151,6 +206,14 @@ function loadState(sourceState) {
     apiCosts: [],
     skuCosts: [],
     materialCosts: [],
+    cogs: {
+      assumptions: { ...DEFAULT_COGS_ASSUMPTIONS },
+      inventory: [],
+      skuRegistry: [],
+      rxPrescriptions: [],
+      contractOrders: [],
+      importedAt: null,
+    },
   };
 
   try {
@@ -245,6 +308,14 @@ function loadState(sourceState) {
       apiCosts: Array.isArray(parsed.apiCosts) ? parsed.apiCosts : [],
       skuCosts: Array.isArray(parsed.skuCosts) ? parsed.skuCosts : [],
       materialCosts: Array.isArray(parsed.materialCosts) ? parsed.materialCosts : [],
+      cogs: {
+        assumptions: { ...DEFAULT_COGS_ASSUMPTIONS, ...(parsed.cogs?.assumptions || {}) },
+        inventory: Array.isArray(parsed.cogs?.inventory) ? parsed.cogs.inventory : [],
+        skuRegistry: Array.isArray(parsed.cogs?.skuRegistry) ? parsed.cogs.skuRegistry : [],
+        rxPrescriptions: Array.isArray(parsed.cogs?.rxPrescriptions) ? parsed.cogs.rxPrescriptions : [],
+        contractOrders: Array.isArray(parsed.cogs?.contractOrders) ? parsed.cogs.contractOrders : [],
+        importedAt: parsed.cogs?.importedAt || null,
+      },
     };
   } catch {
     return fallback;
@@ -491,6 +562,28 @@ function parseAmount(value) {
   return Number(String(value).replace(/[$,\s]/g, "")) || 0;
 }
 
+function parseDateValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === "number" && window.XLSX?.SSF) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d)).toISOString().slice(0, 10);
+    }
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+function daysUntil(dateValue) {
+  if (!dateValue) return null;
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.ceil((date.getTime() - localToday.getTime()) / 86400000);
+}
+
 function textValue(row, names, fallback = "") {
   const key = findColumn(row, names);
   return String(row[key] || "").trim() || fallback;
@@ -572,6 +665,21 @@ async function readWorkbook(file) {
     workbook.SheetNames.map((sheetName) => [
       sheetName,
       XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" }),
+    ]),
+  );
+}
+
+async function readWorkbookRaw(file) {
+  if (!window.XLSX) {
+    throw new Error("Excel support is still loading. Try again in a moment.");
+  }
+
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  return Object.fromEntries(
+    workbook.SheetNames.map((sheetName) => [
+      sheetName,
+      XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: true }),
     ]),
   );
 }
@@ -1204,6 +1312,137 @@ function renderPricing() {
   renderBuilder();
 }
 
+function renderCogs() {
+  const summary = cogsSummary();
+  const rxRows = state.cogs?.rxPrescriptions || [];
+  const contractRows = state.cogs?.contractOrders || [];
+  const inventory = state.cogs?.inventory || [];
+  const skuRegistry = state.cogs?.skuRegistry || [];
+  const assumptions = state.cogs?.assumptions || DEFAULT_COGS_ASSUMPTIONS;
+
+  els.cogsTotalRevenue.textContent = money(summary.totalRevenue);
+  els.cogsTotalCogs.textContent = money(summary.totalCogs);
+  els.cogsGrossProfit.textContent = money(summary.grossProfit);
+  els.cogsGrossMargin.textContent = percent(summary.grossMargin);
+  els.cogsInventoryValue.textContent = money(summary.inventoryValue);
+  els.cogsExpiryRisk.textContent = money(summary.expiryRisk);
+
+  const streams = [
+    ["Rx Prescriptions", summary.rxTotals],
+    ["Contract Orders", summary.contractTotals],
+    ["Combined", { revenue: summary.totalRevenue, totalCogs: summary.totalCogs, grossProfit: summary.grossProfit }],
+  ];
+  els.cogsStreamTable.innerHTML = summary.totalRevenue
+    ? streams.map(([label, totals]) => `<tr>
+        <td>${escapeHtml(label)}</td>
+        <td class="number">${money(totals.revenue)}</td>
+        <td class="number">${money(totals.totalCogs)}</td>
+        <td class="number">${money(totals.grossProfit)}</td>
+        <td class="number">${percent(totals.revenue ? totals.grossProfit / totals.revenue : 0)}</td>
+      </tr>`).join("")
+    : `<tr><td class="empty" colspan="5">Upload a COGS workbook to calculate revenue, COGS, and margin.</td></tr>`;
+
+  const combinedCosts = {
+    materialCost: summary.rxTotals.materialCost + summary.contractTotals.materialCost,
+    directLabor: summary.rxTotals.directLabor + summary.contractTotals.directLabor,
+    indirectLabor: summary.rxTotals.indirectLabor + summary.contractTotals.indirectLabor,
+    qaCost: summary.rxTotals.qaCost + summary.contractTotals.qaCost,
+    packaging: summary.rxTotals.packaging + summary.contractTotals.packaging,
+    overhead: summary.rxTotals.overhead + summary.contractTotals.overhead,
+    waste: summary.rxTotals.waste + summary.contractTotals.waste,
+  };
+  const breakdownRows = [
+    ["Direct Materials", combinedCosts.materialCost],
+    ["Direct Labor", combinedCosts.directLabor],
+    ["Indirect Labor", combinedCosts.indirectLabor],
+    ["QA / Testing", combinedCosts.qaCost],
+    ["Packaging", combinedCosts.packaging],
+    ["Overhead", combinedCosts.overhead],
+    ["Waste / Spoilage", combinedCosts.waste],
+  ];
+  els.cogsBreakdownTable.innerHTML = summary.totalCogs
+    ? breakdownRows.map(([label, amount]) => `<tr>
+        <td>${escapeHtml(label)}</td>
+        <td class="number">${money(amount)}</td>
+        <td class="number">${percent(amount / summary.totalCogs)}</td>
+      </tr>`).join("")
+    : `<tr><td class="empty" colspan="3">Cost categories will appear after import.</td></tr>`;
+
+  els.cogsAssumptionsTable.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit, notes]) => `<tr>
+    <td>${escapeHtml(label)}</td>
+    <td class="number">${unit === "%" ? percent(assumptions[key]) : number(assumptions[key])}</td>
+    <td>${escapeHtml(unit)}</td>
+    <td>${escapeHtml(notes)}</td>
+  </tr>`).join("");
+
+  els.cogsInventoryTable.innerHTML = inventory.length
+    ? inventory
+        .slice()
+        .sort((a, b) => {
+          const aDays = a.daysToExpiry ?? 999999;
+          const bDays = b.daysToExpiry ?? 999999;
+          return aDays - bDays;
+        })
+        .map((item) => `<tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.type)}</td>
+          <td class="number">${number(item.qtyOnHand)}</td>
+          <td class="number">${money(item.unitCost)}</td>
+          <td class="number">${money(item.totalValue)}</td>
+          <td class="number">${item.daysToExpiry === null ? "" : number(item.daysToExpiry)}</td>
+          <td><span class="status-chip ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="7">Inventory rows will appear after import.</td></tr>`;
+
+  els.cogsSkuTable.innerHTML = skuRegistry.length
+    ? skuRegistry
+        .slice()
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((sku) => `<tr>
+          <td>${escapeHtml(sku.id)}</td>
+          <td>${escapeHtml(sku.productName)}</td>
+          <td>${escapeHtml(sku.type)}</td>
+          <td class="number">${money(sku.batchCost)}</td>
+          <td class="number">${number(sku.unitsPerBatch)}</td>
+          <td class="number">${money(sku.unitCost)}</td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="6">SKU registry rows will appear after import.</td></tr>`;
+
+  els.cogsRxTable.innerHTML = rxRows.length
+    ? rxRows.map((row) => `<tr>
+        <td>${escapeHtml(row.id)}</td>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(row.skuId)}</td>
+        <td class="number">${money(row.revenue)}</td>
+        <td class="number">${money(row.totalCogs)}</td>
+        <td class="number">${money(row.grossProfit)}</td>
+        <td class="number">${percent(row.grossMargin)}</td>
+      </tr>`).join("")
+    : `<tr><td class="empty" colspan="7">Rx profitability rows will appear after import.</td></tr>`;
+
+  els.cogsContractTable.innerHTML = contractRows.length
+    ? contractRows.map((row) => `<tr>
+        <td>${escapeHtml(row.id)}</td>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(row.client)}</td>
+        <td>${escapeHtml(row.skuId)}</td>
+        <td class="number">${money(row.revenue)}</td>
+        <td class="number">${money(row.totalCogs)}</td>
+        <td class="number">${percent(row.grossMargin)}</td>
+      </tr>`).join("")
+    : `<tr><td class="empty" colspan="7">Contract profitability rows will appear after import.</td></tr>`;
+}
+
+function statusClass(status) {
+  const key = normalizeKey(status);
+  if (key.includes("expired")) return "danger";
+  if (key.includes("expiring")) return "warning";
+  if (key.includes("reorder")) return "warning";
+  return "ok";
+}
+
 function render() {
   renderOptions();
   renderLists();
@@ -1212,6 +1451,7 @@ function render() {
   renderTables(rows);
   renderCharts(rows);
   renderPricing();
+  renderCogs();
   saveState();
 }
 
@@ -1430,6 +1670,244 @@ function skuSummaryRows() {
   }));
 }
 
+function sheetRows(rawRows, marker) {
+  const headerIndex = rawRows.findIndex((row) => row.some((cell) => normalizeKey(cell) === normalizeKey(marker)));
+  if (headerIndex < 0) return [];
+  const headers = rawRows[headerIndex].map((header) => String(header || "").replace(/\s+/g, " ").trim());
+  return rawRows
+    .slice(headerIndex + 1)
+    .filter((row) => row.some((cell) => String(cell || "").trim()))
+    .map((row) => Object.fromEntries(headers.map((header, index) => [header || `Column ${index + 1}`, row[index] ?? ""])));
+}
+
+function assumptionFromLabel(label) {
+  const key = normalizeKey(label);
+  if (key.includes("directlaborrx")) return "rxLaborRate";
+  if (key.includes("directlaborcontract")) return "contractLaborRate";
+  if (key.includes("indirectlabor")) return "indirectLaborRate";
+  if (key.includes("monthlyrent")) return "monthlyRent";
+  if (key.includes("monthlyutilities")) return "monthlyUtilities";
+  if (key.includes("monthlydepreciation")) return "monthlyDepreciation";
+  if (key.includes("monthlymarketing")) return "monthlyMarketing";
+  if (key.includes("software") || key.includes("license")) return "monthlySoftware";
+  if (key.includes("othermonthly")) return "monthlyOther";
+  if (key.includes("rxunits")) return "rxOverheadUnits";
+  if (key.includes("contractunits")) return "contractOverheadUnits";
+  if (key.includes("waste")) return "wasteFactor";
+  if (key.includes("testingcostperbatchrx")) return "qaRx";
+  if (key.includes("testingcostperbatchcontract")) return "qaContract";
+  if (key.includes("packagingcostperunitrx")) return "packagingRx";
+  if (key.includes("packagingcostperunitcontract")) return "packagingContract";
+  return "";
+}
+
+function normalizeCogsAssumptions(rawRows) {
+  const assumptions = { ...DEFAULT_COGS_ASSUMPTIONS };
+  rawRows.forEach((row) => {
+    const key = assumptionFromLabel(row[0]);
+    if (key) assumptions[key] = parseAmount(row[1]);
+  });
+  return assumptions;
+}
+
+function materialStatus(item) {
+  if (item.daysToExpiry !== null && item.daysToExpiry < 0) return "Expired";
+  if (item.daysToExpiry !== null && item.daysToExpiry <= EXPIRY_WARNING_DAYS) return "Expiring soon";
+  if (item.qtyOnHand <= item.reorderPoint) return "Reorder";
+  return "OK";
+}
+
+function normalizeCogsInventory(rawRows) {
+  return sheetRows(rawRows, "Material ID").map((row) => {
+    const expiryDate = parseDateValue(row["BUD (Expiry Date)"]);
+    const item = {
+      id: String(row["Material ID"] || crypto.randomUUID()).trim(),
+      name: String(row["Material Name"] || "").trim(),
+      type: String(row.Type || "").trim(),
+      unit: String(row.UoM || "").trim(),
+      qtyOnHand: parseAmount(row["Qty On Hand"]),
+      reorderPoint: parseAmount(row["Reorder Point"]),
+      unitCost: parseAmount(row["Unit Cost ($)"]),
+      vendor: String(row.Vendor || "").trim(),
+      lotNumber: String(row["Lot Number"] || "").trim(),
+      expiryDate,
+      daysToExpiry: daysUntil(expiryDate),
+    };
+    item.totalValue = item.qtyOnHand * item.unitCost;
+    item.status = materialStatus(item);
+    return item;
+  }).filter((item) => item.id && item.name);
+}
+
+function normalizeCogsSkuRegistry(rawRows, inventory) {
+  const inventoryById = new Map(inventory.map((item) => [normalizeKey(item.id), item]));
+  return sheetRows(rawRows, "SKU ID").map((row) => {
+    const ingredients = [];
+    for (let index = 1; index <= 9; index += 1) {
+      const materialId = String(row[`Ing ${index} Mat ID`] || "").trim();
+      const quantity = parseAmount(row[`Ing ${index} Qty`]);
+      if (!materialId || !quantity) continue;
+      const material = inventoryById.get(normalizeKey(materialId));
+      const cost = quantity * (material?.unitCost || 0);
+      ingredients.push({
+        materialId,
+        materialName: material?.name || materialId,
+        quantity,
+        unit: material?.unit || "",
+        unitCost: material?.unitCost || 0,
+        cost,
+      });
+    }
+    const calculatedBatchCost = sum(ingredients, "cost");
+    const batchCost = amountValue(row, ["Mat Cost per Batch ($)", "Material Cost per Batch"]) || calculatedBatchCost;
+    const unitsPerBatch = parseAmount(row["Units per Batch"]);
+    const unitCost = amountValue(row, ["Mat Cost per Unit ($)", "Material Cost per Unit"]) || (unitsPerBatch ? batchCost / unitsPerBatch : 0);
+    return {
+      id: String(row["SKU ID"] || "").trim(),
+      productName: String(row["Product Name"] || "").trim(),
+      type: String(row["Type (Rx/Contract)"] || "").trim(),
+      dosageForm: String(row["Dosage Form"] || "").trim(),
+      batchSize: parseAmount(row["Batch Size"]),
+      batchUnit: String(row["Batch UoM"] || "").trim(),
+      ingredients,
+      batchCost,
+      unitsPerBatch,
+      unitCost,
+    };
+  }).filter((item) => item.id && item.productName);
+}
+
+function cogsOverheadTotal(assumptions) {
+  return assumptions.monthlyRent + assumptions.monthlyUtilities + assumptions.monthlyDepreciation + assumptions.monthlyMarketing + assumptions.monthlySoftware + assumptions.monthlyOther;
+}
+
+function calculateRxCogs(row, sku, assumptions) {
+  const quantity = parseAmount(row["Qty Dispensed"]);
+  const revenue = parseAmount(row["Selling Price ($)"]);
+  const materialCost = quantity * (sku?.unitCost || 0);
+  const directLabor = parseAmount(row["DL Hours"]) * assumptions.rxLaborRate;
+  const indirectLabor = directLabor * assumptions.indirectLaborRate;
+  const qaCost = sku ? assumptions.qaRx : 0;
+  const packaging = sku ? quantity * assumptions.packagingRx : 0;
+  const overhead = sku ? cogsOverheadTotal(assumptions) / (assumptions.rxOverheadUnits || 1) : 0;
+  const waste = materialCost * assumptions.wasteFactor;
+  const totalCogs = materialCost + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
+  const grossProfit = revenue - totalCogs;
+  return { quantity, revenue, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
+}
+
+function calculateContractCogs(row, sku, assumptions) {
+  const units = parseAmount(row["Units Ordered"]);
+  const unitPrice = parseAmount(row["Unit Price ($)"]);
+  const revenue = units * unitPrice;
+  const materialCost = units * (sku?.unitCost || 0);
+  const directLabor = parseAmount(row["DL Hours (Total)"]) * assumptions.contractLaborRate;
+  const indirectLabor = directLabor * assumptions.indirectLaborRate;
+  const qaCost = sku ? units * assumptions.qaContract : 0;
+  const packaging = sku ? units * assumptions.packagingContract : 0;
+  const overhead = sku ? units * cogsOverheadTotal(assumptions) / (assumptions.contractOverheadUnits || 1) : 0;
+  const waste = materialCost * assumptions.wasteFactor;
+  const totalCogs = materialCost + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
+  const grossProfit = revenue - totalCogs;
+  return { units, unitPrice, revenue, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
+}
+
+function preferProvidedCogs(row, calculated) {
+  const provided = {
+    materialCost: amountValue(row, ["Mat Cost ($)", "Material Cost"]),
+    directLabor: amountValue(row, ["DL Cost ($)", "Direct Labor"]),
+    indirectLabor: amountValue(row, ["Indirect Labor ($)", "Indirect Labor"]),
+    qaCost: amountValue(row, ["QA Cost ($)", "QA Cost"]),
+    packaging: amountValue(row, ["Pkg Cost ($)", "Packaging"]),
+    overhead: amountValue(row, ["Overhead ($)", "Overhead per Unit ($)", "Overhead"]),
+    waste: amountValue(row, ["Waste ($)", "Waste"]),
+    totalCogs: amountValue(row, ["Total COGS ($)", "Total COGS"]),
+    grossProfit: amountValue(row, ["Gross Profit ($)", "Gross Profit"]),
+    grossMargin: amountValue(row, ["Gross Margin %", "Gross Margin"]),
+  };
+  const next = { ...calculated };
+  Object.entries(provided).forEach(([key, value]) => {
+    if (value) next[key] = value;
+  });
+  if (!provided.grossProfit && next.revenue) next.grossProfit = next.revenue - next.totalCogs;
+  if (!provided.grossMargin && next.revenue) next.grossMargin = next.grossProfit / next.revenue;
+  return next;
+}
+
+function normalizeCogsRx(rawRows, skuRegistry, assumptions) {
+  const skuById = new Map(skuRegistry.map((sku) => [normalizeKey(sku.id), sku]));
+  return sheetRows(rawRows, "Rx #").flatMap((row) => {
+    const rxNumber = String(row["Rx #"] || "").trim();
+    const skuId = String(row["SKU ID"] || "").trim();
+    const revenue = parseAmount(row["Selling Price ($)"]);
+    if (!rxNumber || !skuId || !revenue) return [];
+    const sku = skuById.get(normalizeKey(skuId));
+    return [{
+      id: rxNumber,
+      date: parseDateValue(row.Date),
+      skuId,
+      productName: sku?.productName || String(row["Product Name"] || "").trim(),
+      ...preferProvidedCogs(row, calculateRxCogs(row, sku, assumptions)),
+    }];
+  });
+}
+
+function normalizeCogsContracts(rawRows, skuRegistry, assumptions) {
+  const skuById = new Map(skuRegistry.map((sku) => [normalizeKey(sku.id), sku]));
+  return sheetRows(rawRows, "Order #").flatMap((row) => {
+    const orderNumber = String(row["Order #"] || "").trim();
+    const skuId = String(row["SKU ID"] || "").trim();
+    if (!orderNumber || !skuId || !parseAmount(row["Units Ordered"])) return [];
+    const sku = skuById.get(normalizeKey(skuId));
+    return [{
+      id: orderNumber,
+      date: parseDateValue(row.Date),
+      client: String(row["Client / Facility"] || "").trim(),
+      skuId,
+      productName: sku?.productName || String(row["Product Name"] || "").trim(),
+      ...preferProvidedCogs(row, calculateContractCogs(row, sku, assumptions)),
+    }];
+  });
+}
+
+function normalizeCogsWorkbook(sheets) {
+  const assumptions = normalizeCogsAssumptions(findSheet(sheets, ["Assumptions"]));
+  const inventory = normalizeCogsInventory(findSheet(sheets, ["Material Inventory"]));
+  const skuRegistry = normalizeCogsSkuRegistry(findSheet(sheets, ["SKU Registry"]), inventory);
+  const rxPrescriptions = normalizeCogsRx(findSheet(sheets, ["Rx Prescriptions"]), skuRegistry, assumptions);
+  const contractOrders = normalizeCogsContracts(findSheet(sheets, ["Contract Orders"]), skuRegistry, assumptions);
+  return { assumptions, inventory, skuRegistry, rxPrescriptions, contractOrders, importedAt: new Date().toISOString() };
+}
+
+function cogsSummary() {
+  const rx = state.cogs?.rxPrescriptions || [];
+  const contracts = state.cogs?.contractOrders || [];
+  const inventory = state.cogs?.inventory || [];
+  const rxTotals = totalCogsRows(rx);
+  const contractTotals = totalCogsRows(contracts);
+  const totalRevenue = rxTotals.revenue + contractTotals.revenue;
+  const totalCogs = rxTotals.totalCogs + contractTotals.totalCogs;
+  const grossProfit = totalRevenue - totalCogs;
+  const inventoryValue = sum(inventory, "totalValue");
+  const expiryRisk = sum(inventory.filter((item) => item.daysToExpiry !== null && item.daysToExpiry <= EXPIRY_WARNING_DAYS), "totalValue");
+  return { rxTotals, contractTotals, totalRevenue, totalCogs, grossProfit, grossMargin: totalRevenue ? grossProfit / totalRevenue : 0, inventoryValue, expiryRisk };
+}
+
+function totalCogsRows(rows) {
+  return {
+    revenue: sum(rows, "revenue"),
+    materialCost: sum(rows, "materialCost"),
+    directLabor: sum(rows, "directLabor"),
+    indirectLabor: sum(rows, "indirectLabor"),
+    qaCost: sum(rows, "qaCost"),
+    packaging: sum(rows, "packaging"),
+    overhead: sum(rows, "overhead"),
+    waste: sum(rows, "waste"),
+    totalCogs: sum(rows, "totalCogs"),
+    grossProfit: sum(rows, "grossProfit"),
+  };
+}
+
 function findSheet(sheets, candidates) {
   const entries = Object.entries(sheets);
   return entries.find(([name]) => candidates.some((candidate) => normalizeKey(name) === normalizeKey(candidate)))?.[1] || [];
@@ -1478,6 +1956,48 @@ async function importPricingWorkbook(file) {
   upsertCosts("materialCosts", materialRecords);
 
   els.pricingWorkbookStatus.textContent = `Imported ${apiRecords.length} APIs, ${skuRecords.length} SKUs, and ${materialRecords.length} materials.`;
+  render();
+  if (cloudReady) await saveCloudState();
+}
+
+function syncCogsToPricing(cogs) {
+  upsertCosts("materialCosts", cogs.inventory.map((item) => ({
+    id: crypto.randomUUID(),
+    name: item.name,
+    category: item.type || "Material",
+    cost: item.unitCost,
+    unit: item.unit || "unit",
+    notes: [item.id, item.vendor, item.lotNumber].filter(Boolean).join(" | "),
+  })));
+
+  upsertSkuCosts(cogs.skuRegistry.map((sku) => ({
+    id: crypto.randomUUID(),
+    formula: sku.id,
+    total: sku.batchCost,
+    unitCost: sku.unitCost,
+    costPerGram: sku.batchUnit && normalizeKey(sku.batchUnit).includes("g") ? sku.batchCost / (sku.batchSize || SKU_BATCH_GRAMS) : sku.unitCost,
+    ingredients: sku.ingredients.map((ingredient) => ({
+      api: ingredient.materialName,
+      quantity: ingredient.quantity,
+      units: ingredient.unit,
+      total: ingredient.cost,
+      unitCost: ingredient.unitCost,
+    })),
+  })));
+}
+
+async function importCogsWorkbook(file) {
+  if (!file) {
+    els.cogsWorkbookStatus.textContent = "Choose a COGS workbook first.";
+    return;
+  }
+  if (!(await requireCloudReady(els.cogsWorkbookStatus))) return;
+
+  const sheets = await readWorkbookRaw(file);
+  const cogs = normalizeCogsWorkbook(sheets);
+  state.cogs = cogs;
+  syncCogsToPricing(cogs);
+  els.cogsWorkbookStatus.textContent = `Imported ${cogs.inventory.length} materials, ${cogs.skuRegistry.length} SKUs, ${cogs.rxPrescriptions.length} Rx rows, and ${cogs.contractOrders.length} contract rows.`;
   render();
   if (cloudReady) await saveCloudState();
 }
@@ -1751,6 +2271,16 @@ els.pricingWorkbookForm.addEventListener("submit", async (event) => {
     els.pricingWorkbookFile.value = "";
   } catch (error) {
     els.pricingWorkbookStatus.textContent = `Pricing workbook import failed: ${error.message}`;
+  }
+});
+
+els.cogsWorkbookForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await importCogsWorkbook(els.cogsWorkbookFile.files[0]);
+    els.cogsWorkbookFile.value = "";
+  } catch (error) {
+    els.cogsWorkbookStatus.textContent = `COGS import failed: ${error.message}`;
   }
 });
 

@@ -715,6 +715,32 @@ th.number {
   font-size: 0.8rem;
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-chip.ok {
+  color: #236a35;
+  background: #e8f5e9;
+}
+
+.status-chip.warning {
+  color: #7a5200;
+  background: #fff4cc;
+}
+
+.status-chip.danger {
+  color: #8a1f11;
+  background: #ffe1dc;
+}
+
 tbody tr:last-child td {
   border-bottom: 0;
 }
