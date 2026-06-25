@@ -636,6 +636,19 @@ function amountValue(row, names) {
   return parseAmount(row[key]);
 }
 
+function rowText(row, names, fallback = "") {
+  return textValue(row, names, fallback);
+}
+
+function rowAmount(row, names) {
+  return amountValue(row, names);
+}
+
+function rowValue(row, names) {
+  const key = findColumn(row, names);
+  return row[key];
+}
+
 function normalizeKey(key) {
   return String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -1797,17 +1810,17 @@ function normalizeCogsInventoryItem(item) {
 
 function normalizeCogsInventory(rawRows) {
   return sheetRows(rawRows, "Material ID").map((row) => {
-    const expiryDate = parseDateValue(row["BUD (Expiry Date)"]);
+    const expiryDate = parseDateValue(rowValue(row, ["BUD (Expiry Date)", "BUD / Expiry Date", "Expiry Date"]));
     return normalizeCogsInventoryItem({
-      id: String(row["Material ID"] || crypto.randomUUID()).trim(),
-      name: String(row["Material Name"] || "").trim(),
-      type: String(row.Type || "").trim(),
-      unit: String(row.UoM || "").trim(),
-      qtyOnHand: parseAmount(row["Qty On Hand"]),
-      reorderPoint: parseAmount(row["Reorder Point"]),
-      unitCost: parseAmount(row["Unit Cost ($)"]),
-      vendor: String(row.Vendor || "").trim(),
-      lotNumber: String(row["Lot Number"] || "").trim(),
+      id: rowText(row, ["Material ID"], crypto.randomUUID()),
+      name: rowText(row, ["Material Name"]),
+      type: rowText(row, ["Type"]),
+      unit: rowText(row, ["UoM", "UOM", "Unit"]),
+      qtyOnHand: rowAmount(row, ["Qty On Hand", "Quantity On Hand"]),
+      reorderPoint: rowAmount(row, ["Reorder Point"]),
+      unitCost: rowAmount(row, ["Unit Cost ($)", "Unit Cost"]),
+      vendor: rowText(row, ["Vendor"]),
+      lotNumber: rowText(row, ["Lot Number"]),
       expiryDate,
     });
   }).filter((item) => item.id && item.name);
@@ -1852,31 +1865,25 @@ function normalizeCogsSkuRegistry(rawRows, inventory) {
   return sheetRows(rawRows, "SKU ID").map((row) => {
     const ingredients = [];
     for (let index = 1; index <= 9; index += 1) {
-      const materialId = String(row[`Ing ${index} Mat ID`] || "").trim();
-      const quantity = parseAmount(row[`Ing ${index} Qty`]);
+      const materialId = rowText(row, [`Ing ${index} Mat ID`]);
+      const quantity = rowAmount(row, [`Ing ${index} Qty`]);
       if (!materialId || !quantity) continue;
-      const material = inventoryById.get(normalizeKey(materialId));
-      const cost = quantity * (material?.unitCost || 0);
       ingredients.push({
         materialId,
-        materialName: material?.name || materialId,
         quantity,
-        unit: material?.unit || "",
-        unitCost: material?.unitCost || 0,
-        cost,
       });
     }
     return buildCogsSku({
-      id: String(row["SKU ID"] || "").trim(),
-      productName: String(row["Product Name"] || "").trim(),
-      type: String(row["Type (Rx/Contract)"] || "").trim(),
-      dosageForm: String(row["Dosage Form"] || "").trim(),
-      batchSize: parseAmount(row["Batch Size"]),
-      batchUnit: String(row["Batch UoM"] || "").trim(),
+      id: rowText(row, ["SKU ID"]),
+      productName: rowText(row, ["Product Name"]),
+      type: rowText(row, ["Type (Rx/Contract)", "Type"]),
+      dosageForm: rowText(row, ["Dosage Form"]),
+      batchSize: rowAmount(row, ["Batch Size"]),
+      batchUnit: rowText(row, ["Batch UoM", "Batch UOM"]),
       ingredients,
-      batchCost: amountValue(row, ["Mat Cost per Batch ($)", "Material Cost per Batch"]),
-      unitsPerBatch: parseAmount(row["Units per Batch"]),
-      unitCost: amountValue(row, ["Mat Cost per Unit ($)", "Material Cost per Unit"]),
+      batchCost: rowAmount(row, ["Mat Cost per Batch ($)", "Material Cost per Batch"]),
+      unitsPerBatch: rowAmount(row, ["Units per Batch"]),
+      unitCost: rowAmount(row, ["Mat Cost per Unit ($)", "Material Cost per Unit"]),
     }, inventory);
   }).filter((item) => item.id && item.productName);
 }
