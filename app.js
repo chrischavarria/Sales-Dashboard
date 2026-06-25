@@ -2095,9 +2095,17 @@ async function importApiCostFile(file) {
 
   const sheets = await readWorkbook(file);
   const apiRows = findSheet(sheets, ["DRUGS", "Drugs", "API", "API Cost"]) || Object.values(sheets)[0] || [];
+  const formulaRows = findSheet(sheets, ["FORMULAS", "Formulas", "SKU", "SKU Cost"]);
+  const materialRows = findSheet(sheets, ["Sheet3", "Materials", "Material Cost"]);
   const records = normalizeApiCosts(apiRows);
   upsertCosts("apiCosts", records);
-  els.apiCostStatus.textContent = `Imported ${records.length} API cost records.`;
+  const skuRecords = formulaRows?.length ? normalizeFormulaSheet(formulaRows) : [];
+  const materialRecords = materialRows?.length ? normalizeMaterialCosts(materialRows) : [];
+  if (skuRecords.length) upsertSkuCosts(skuRecords);
+  if (materialRecords.length) upsertCosts("materialCosts", materialRecords);
+  els.apiCostStatus.textContent = skuRecords.length || materialRecords.length
+    ? `Imported ${records.length} APIs, ${skuRecords.length} SKUs, and ${materialRecords.length} materials.`
+    : `Imported ${records.length} API cost records.`;
   render();
   if (cloudReady) await saveCloudState();
 }
