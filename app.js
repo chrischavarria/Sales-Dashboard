@@ -183,10 +183,52 @@ const els = {
   cogsExpiryRisk: document.querySelector("#cogsExpiryRisk"),
   cogsStreamTable: document.querySelector("#cogsStreamTable"),
   cogsBreakdownTable: document.querySelector("#cogsBreakdownTable"),
+  cogsAssumptionsForm: document.querySelector("#cogsAssumptionsForm"),
+  cogsAssumptionFields: document.querySelector("#cogsAssumptionFields"),
+  cogsAssumptionsStatus: document.querySelector("#cogsAssumptionsStatus"),
   cogsAssumptionsTable: document.querySelector("#cogsAssumptionsTable"),
+  cogsInventoryForm: document.querySelector("#cogsInventoryForm"),
+  cogsMaterialId: document.querySelector("#cogsMaterialId"),
+  cogsMaterialName: document.querySelector("#cogsMaterialName"),
+  cogsMaterialType: document.querySelector("#cogsMaterialType"),
+  cogsMaterialUnit: document.querySelector("#cogsMaterialUnit"),
+  cogsMaterialQty: document.querySelector("#cogsMaterialQty"),
+  cogsMaterialReorder: document.querySelector("#cogsMaterialReorder"),
+  cogsMaterialUnitCost: document.querySelector("#cogsMaterialUnitCost"),
+  cogsMaterialVendor: document.querySelector("#cogsMaterialVendor"),
+  cogsMaterialLot: document.querySelector("#cogsMaterialLot"),
+  cogsMaterialExpiry: document.querySelector("#cogsMaterialExpiry"),
+  cogsInventoryStatus: document.querySelector("#cogsInventoryStatus"),
   cogsInventoryTable: document.querySelector("#cogsInventoryTable"),
+  cogsSkuForm: document.querySelector("#cogsSkuForm"),
+  cogsSkuId: document.querySelector("#cogsSkuId"),
+  cogsSkuProduct: document.querySelector("#cogsSkuProduct"),
+  cogsSkuType: document.querySelector("#cogsSkuType"),
+  cogsSkuDosage: document.querySelector("#cogsSkuDosage"),
+  cogsSkuBatchSize: document.querySelector("#cogsSkuBatchSize"),
+  cogsSkuBatchUnit: document.querySelector("#cogsSkuBatchUnit"),
+  cogsSkuUnitsPerBatch: document.querySelector("#cogsSkuUnitsPerBatch"),
+  cogsSkuIngredients: document.querySelector("#cogsSkuIngredients"),
+  cogsSkuStatus: document.querySelector("#cogsSkuStatus"),
   cogsSkuTable: document.querySelector("#cogsSkuTable"),
+  cogsRxForm: document.querySelector("#cogsRxForm"),
+  cogsRxId: document.querySelector("#cogsRxId"),
+  cogsRxDate: document.querySelector("#cogsRxDate"),
+  cogsRxSku: document.querySelector("#cogsRxSku"),
+  cogsRxQty: document.querySelector("#cogsRxQty"),
+  cogsRxRevenue: document.querySelector("#cogsRxRevenue"),
+  cogsRxLaborHours: document.querySelector("#cogsRxLaborHours"),
+  cogsRxStatus: document.querySelector("#cogsRxStatus"),
   cogsRxTable: document.querySelector("#cogsRxTable"),
+  cogsContractForm: document.querySelector("#cogsContractForm"),
+  cogsContractId: document.querySelector("#cogsContractId"),
+  cogsContractDate: document.querySelector("#cogsContractDate"),
+  cogsContractClient: document.querySelector("#cogsContractClient"),
+  cogsContractSku: document.querySelector("#cogsContractSku"),
+  cogsContractUnits: document.querySelector("#cogsContractUnits"),
+  cogsContractUnitPrice: document.querySelector("#cogsContractUnitPrice"),
+  cogsContractLaborHours: document.querySelector("#cogsContractLaborHours"),
+  cogsContractStatus: document.querySelector("#cogsContractStatus"),
   cogsContractTable: document.querySelector("#cogsContractTable"),
 };
 
@@ -1368,6 +1410,12 @@ function renderCogs() {
       </tr>`).join("")
     : `<tr><td class="empty" colspan="3">Cost categories will appear after import.</td></tr>`;
 
+  els.cogsAssumptionFields.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit]) => `<label>
+    ${escapeHtml(label)}
+    <input data-assumption="${key}" data-unit="${escapeHtml(unit)}" type="number" step="0.0001" value="${assumptionInputValue(key, assumptions[key])}">
+    <span>${escapeHtml(unit)}</span>
+  </label>`).join("");
+
   els.cogsAssumptionsTable.innerHTML = COGS_ASSUMPTION_ROWS.map(([key, label, unit, notes]) => `<tr>
     <td>${escapeHtml(label)}</td>
     <td class="number">${unit === "%" ? percent(assumptions[key]) : number(assumptions[key])}</td>
@@ -1441,6 +1489,17 @@ function statusClass(status) {
   if (key.includes("expiring")) return "warning";
   if (key.includes("reorder")) return "warning";
   return "ok";
+}
+
+function assumptionInputValue(key, value) {
+  if (key === "indirectLaborRate" || key === "wasteFactor") return Number(value || 0) * 100;
+  return Number(value || 0);
+}
+
+function normalizeAssumptionInput(key, value) {
+  const amount = parseAmount(value);
+  if (key === "indirectLaborRate" || key === "wasteFactor") return amount / 100;
+  return amount;
 }
 
 function render() {
@@ -1717,10 +1776,29 @@ function materialStatus(item) {
   return "OK";
 }
 
+function normalizeCogsInventoryItem(item) {
+  const normalized = {
+    id: String(item.id || crypto.randomUUID()).trim(),
+    name: String(item.name || "").trim(),
+    type: String(item.type || "").trim(),
+    unit: String(item.unit || "").trim(),
+    qtyOnHand: parseAmount(item.qtyOnHand),
+    reorderPoint: parseAmount(item.reorderPoint),
+    unitCost: parseAmount(item.unitCost),
+    vendor: String(item.vendor || "").trim(),
+    lotNumber: String(item.lotNumber || "").trim(),
+    expiryDate: item.expiryDate || "",
+  };
+  normalized.daysToExpiry = daysUntil(normalized.expiryDate);
+  normalized.totalValue = normalized.qtyOnHand * normalized.unitCost;
+  normalized.status = materialStatus(normalized);
+  return normalized;
+}
+
 function normalizeCogsInventory(rawRows) {
   return sheetRows(rawRows, "Material ID").map((row) => {
     const expiryDate = parseDateValue(row["BUD (Expiry Date)"]);
-    const item = {
+    return normalizeCogsInventoryItem({
       id: String(row["Material ID"] || crypto.randomUUID()).trim(),
       name: String(row["Material Name"] || "").trim(),
       type: String(row.Type || "").trim(),
@@ -1731,16 +1809,46 @@ function normalizeCogsInventory(rawRows) {
       vendor: String(row.Vendor || "").trim(),
       lotNumber: String(row["Lot Number"] || "").trim(),
       expiryDate,
-      daysToExpiry: daysUntil(expiryDate),
-    };
-    item.totalValue = item.qtyOnHand * item.unitCost;
-    item.status = materialStatus(item);
-    return item;
+    });
   }).filter((item) => item.id && item.name);
 }
 
-function normalizeCogsSkuRegistry(rawRows, inventory) {
+function buildCogsSku(record, inventory) {
   const inventoryById = new Map(inventory.map((item) => [normalizeKey(item.id), item]));
+  const ingredients = (record.ingredients || []).flatMap((ingredient) => {
+    const materialId = String(ingredient.materialId || "").trim();
+    const quantity = parseAmount(ingredient.quantity);
+    if (!materialId || !quantity) return [];
+    const material = inventoryById.get(normalizeKey(materialId));
+    const cost = quantity * (material?.unitCost || 0);
+    return [{
+      materialId,
+      materialName: material?.name || materialId,
+      quantity,
+      unit: material?.unit || "",
+      unitCost: material?.unitCost || 0,
+      cost,
+    }];
+  });
+  const calculatedBatchCost = sum(ingredients, "cost");
+  const batchCost = calculatedBatchCost || parseAmount(record.batchCost);
+  const unitsPerBatch = parseAmount(record.unitsPerBatch);
+  const unitCost = unitsPerBatch ? batchCost / unitsPerBatch : parseAmount(record.unitCost);
+  return {
+    id: String(record.id || "").trim(),
+    productName: String(record.productName || "").trim(),
+    type: String(record.type || "").trim(),
+    dosageForm: String(record.dosageForm || "").trim(),
+    batchSize: parseAmount(record.batchSize),
+    batchUnit: String(record.batchUnit || "").trim(),
+    ingredients,
+    batchCost,
+    unitsPerBatch,
+    unitCost,
+  };
+}
+
+function normalizeCogsSkuRegistry(rawRows, inventory) {
   return sheetRows(rawRows, "SKU ID").map((row) => {
     const ingredients = [];
     for (let index = 1; index <= 9; index += 1) {
@@ -1758,11 +1866,7 @@ function normalizeCogsSkuRegistry(rawRows, inventory) {
         cost,
       });
     }
-    const calculatedBatchCost = sum(ingredients, "cost");
-    const batchCost = amountValue(row, ["Mat Cost per Batch ($)", "Material Cost per Batch"]) || calculatedBatchCost;
-    const unitsPerBatch = parseAmount(row["Units per Batch"]);
-    const unitCost = amountValue(row, ["Mat Cost per Unit ($)", "Material Cost per Unit"]) || (unitsPerBatch ? batchCost / unitsPerBatch : 0);
-    return {
+    return buildCogsSku({
       id: String(row["SKU ID"] || "").trim(),
       productName: String(row["Product Name"] || "").trim(),
       type: String(row["Type (Rx/Contract)"] || "").trim(),
@@ -1770,10 +1874,10 @@ function normalizeCogsSkuRegistry(rawRows, inventory) {
       batchSize: parseAmount(row["Batch Size"]),
       batchUnit: String(row["Batch UoM"] || "").trim(),
       ingredients,
-      batchCost,
-      unitsPerBatch,
-      unitCost,
-    };
+      batchCost: amountValue(row, ["Mat Cost per Batch ($)", "Material Cost per Batch"]),
+      unitsPerBatch: parseAmount(row["Units per Batch"]),
+      unitCost: amountValue(row, ["Mat Cost per Unit ($)", "Material Cost per Unit"]),
+    }, inventory);
   }).filter((item) => item.id && item.productName);
 }
 
@@ -1784,8 +1888,9 @@ function cogsOverheadTotal(assumptions) {
 function calculateRxCogs(row, sku, assumptions) {
   const quantity = parseAmount(row["Qty Dispensed"]);
   const revenue = parseAmount(row["Selling Price ($)"]);
+  const laborHours = parseAmount(row["DL Hours"]);
   const materialCost = quantity * (sku?.unitCost || 0);
-  const directLabor = parseAmount(row["DL Hours"]) * assumptions.rxLaborRate;
+  const directLabor = laborHours * assumptions.rxLaborRate;
   const indirectLabor = directLabor * assumptions.indirectLaborRate;
   const qaCost = sku ? assumptions.qaRx : 0;
   const packaging = sku ? quantity * assumptions.packagingRx : 0;
@@ -1793,15 +1898,16 @@ function calculateRxCogs(row, sku, assumptions) {
   const waste = materialCost * assumptions.wasteFactor;
   const totalCogs = materialCost + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
   const grossProfit = revenue - totalCogs;
-  return { quantity, revenue, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
+  return { quantity, revenue, laborHours, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
 }
 
 function calculateContractCogs(row, sku, assumptions) {
   const units = parseAmount(row["Units Ordered"]);
   const unitPrice = parseAmount(row["Unit Price ($)"]);
+  const laborHours = parseAmount(row["DL Hours (Total)"]);
   const revenue = units * unitPrice;
   const materialCost = units * (sku?.unitCost || 0);
-  const directLabor = parseAmount(row["DL Hours (Total)"]) * assumptions.contractLaborRate;
+  const directLabor = laborHours * assumptions.contractLaborRate;
   const indirectLabor = directLabor * assumptions.indirectLaborRate;
   const qaCost = sku ? units * assumptions.qaContract : 0;
   const packaging = sku ? units * assumptions.packagingContract : 0;
@@ -1809,7 +1915,7 @@ function calculateContractCogs(row, sku, assumptions) {
   const waste = materialCost * assumptions.wasteFactor;
   const totalCogs = materialCost + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
   const grossProfit = revenue - totalCogs;
-  return { units, unitPrice, revenue, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
+  return { units, unitPrice, laborHours, revenue, materialCost, directLabor, indirectLabor, qaCost, packaging, overhead, waste, totalCogs, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0 };
 }
 
 function preferProvidedCogs(row, calculated) {
@@ -1877,6 +1983,31 @@ function normalizeCogsWorkbook(sheets) {
   const rxPrescriptions = normalizeCogsRx(findSheet(sheets, ["Rx Prescriptions"]), skuRegistry, assumptions);
   const contractOrders = normalizeCogsContracts(findSheet(sheets, ["Contract Orders"]), skuRegistry, assumptions);
   return { assumptions, inventory, skuRegistry, rxPrescriptions, contractOrders, importedAt: new Date().toISOString() };
+}
+
+function recalculateCogs() {
+  const assumptions = state.cogs?.assumptions || { ...DEFAULT_COGS_ASSUMPTIONS };
+  const inventory = (state.cogs?.inventory || []).map(normalizeCogsInventoryItem);
+  const skuRegistry = (state.cogs?.skuRegistry || []).map((sku) => buildCogsSku(sku, inventory)).filter((sku) => sku.id && sku.productName);
+  const skuById = new Map(skuRegistry.map((sku) => [normalizeKey(sku.id), sku]));
+  const rxPrescriptions = (state.cogs?.rxPrescriptions || []).map((row) => {
+    const sku = skuById.get(normalizeKey(row.skuId));
+    return {
+      ...row,
+      productName: sku?.productName || row.productName || "",
+      ...calculateRxCogs({ "Qty Dispensed": row.quantity, "Selling Price ($)": row.revenue, "DL Hours": row.laborHours }, sku, assumptions),
+    };
+  });
+  const contractOrders = (state.cogs?.contractOrders || []).map((row) => {
+    const sku = skuById.get(normalizeKey(row.skuId));
+    return {
+      ...row,
+      productName: sku?.productName || row.productName || "",
+      ...calculateContractCogs({ "Units Ordered": row.units, "Unit Price ($)": row.unitPrice, "DL Hours (Total)": row.laborHours }, sku, assumptions),
+    };
+  });
+  state.cogs = { ...(state.cogs || {}), assumptions, inventory, skuRegistry, rxPrescriptions, contractOrders };
+  syncCogsToPricing(state.cogs);
 }
 
 function cogsSummary() {
@@ -1984,6 +2115,27 @@ function syncCogsToPricing(cogs) {
       unitCost: ingredient.unitCost,
     })),
   })));
+}
+
+function upsertById(collection, record) {
+  const key = normalizeKey(record.id);
+  state.cogs[collection] = (state.cogs[collection] || []).filter((item) => normalizeKey(item.id) !== key);
+  state.cogs[collection].push(record);
+}
+
+function parseSkuIngredientLines(text) {
+  return String(text || "").split(/\n+/).flatMap((line) => {
+    const [materialId, quantity] = line.split(",").map((part) => part.trim());
+    if (!materialId || !parseAmount(quantity)) return [];
+    return [{ materialId, quantity: parseAmount(quantity) }];
+  });
+}
+
+async function finishCogsManualSave(statusEl, message) {
+  recalculateCogs();
+  statusEl.textContent = message;
+  render();
+  if (cloudReady) await saveCloudState();
 }
 
 async function importCogsWorkbook(file) {
@@ -2282,6 +2434,107 @@ els.cogsWorkbookForm.addEventListener("submit", async (event) => {
   } catch (error) {
     els.cogsWorkbookStatus.textContent = `COGS import failed: ${error.message}`;
   }
+});
+
+els.cogsAssumptionsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.cogsAssumptionsStatus))) return;
+  els.cogsAssumptionFields.querySelectorAll("[data-assumption]").forEach((input) => {
+    state.cogs.assumptions[input.dataset.assumption] = normalizeAssumptionInput(input.dataset.assumption, input.value);
+  });
+  await finishCogsManualSave(els.cogsAssumptionsStatus, "Saved assumptions and recalculated COGS.");
+});
+
+els.cogsInventoryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.cogsInventoryStatus))) return;
+  const id = els.cogsMaterialId.value.trim();
+  const name = els.cogsMaterialName.value.trim();
+  if (!id || !name) {
+    els.cogsInventoryStatus.textContent = "Enter a material ID and material name.";
+    return;
+  }
+  upsertById("inventory", normalizeCogsInventoryItem({
+    id,
+    name,
+    type: els.cogsMaterialType.value,
+    unit: els.cogsMaterialUnit.value,
+    qtyOnHand: els.cogsMaterialQty.value,
+    reorderPoint: els.cogsMaterialReorder.value,
+    unitCost: els.cogsMaterialUnitCost.value,
+    vendor: els.cogsMaterialVendor.value,
+    lotNumber: els.cogsMaterialLot.value,
+    expiryDate: els.cogsMaterialExpiry.value,
+  }));
+  els.cogsInventoryForm.reset();
+  await finishCogsManualSave(els.cogsInventoryStatus, `Saved material ${id}.`);
+});
+
+els.cogsSkuForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.cogsSkuStatus))) return;
+  const id = els.cogsSkuId.value.trim();
+  const productName = els.cogsSkuProduct.value.trim();
+  const ingredients = parseSkuIngredientLines(els.cogsSkuIngredients.value);
+  if (!id || !productName || !ingredients.length) {
+    els.cogsSkuStatus.textContent = "Enter SKU ID, product name, and at least one ingredient line.";
+    return;
+  }
+  upsertById("skuRegistry", buildCogsSku({
+    id,
+    productName,
+    type: els.cogsSkuType.value,
+    dosageForm: els.cogsSkuDosage.value,
+    batchSize: els.cogsSkuBatchSize.value,
+    batchUnit: els.cogsSkuBatchUnit.value,
+    unitsPerBatch: els.cogsSkuUnitsPerBatch.value,
+    ingredients,
+  }, state.cogs.inventory || []));
+  els.cogsSkuForm.reset();
+  await finishCogsManualSave(els.cogsSkuStatus, `Saved SKU ${id}.`);
+});
+
+els.cogsRxForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.cogsRxStatus))) return;
+  const id = els.cogsRxId.value.trim();
+  const skuId = els.cogsRxSku.value.trim();
+  if (!id || !skuId) {
+    els.cogsRxStatus.textContent = "Enter an Rx number and SKU ID.";
+    return;
+  }
+  const sku = state.cogs.skuRegistry.find((item) => normalizeKey(item.id) === normalizeKey(skuId));
+  upsertById("rxPrescriptions", {
+    id,
+    date: els.cogsRxDate.value,
+    skuId,
+    productName: sku?.productName || "",
+    ...calculateRxCogs({ "Qty Dispensed": els.cogsRxQty.value, "Selling Price ($)": els.cogsRxRevenue.value, "DL Hours": els.cogsRxLaborHours.value }, sku, state.cogs.assumptions),
+  });
+  els.cogsRxForm.reset();
+  await finishCogsManualSave(els.cogsRxStatus, `Saved Rx ${id}.`);
+});
+
+els.cogsContractForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!(await requireCloudReady(els.cogsContractStatus))) return;
+  const id = els.cogsContractId.value.trim();
+  const skuId = els.cogsContractSku.value.trim();
+  if (!id || !skuId) {
+    els.cogsContractStatus.textContent = "Enter an order number and SKU ID.";
+    return;
+  }
+  const sku = state.cogs.skuRegistry.find((item) => normalizeKey(item.id) === normalizeKey(skuId));
+  upsertById("contractOrders", {
+    id,
+    date: els.cogsContractDate.value,
+    client: els.cogsContractClient.value.trim(),
+    skuId,
+    productName: sku?.productName || "",
+    ...calculateContractCogs({ "Units Ordered": els.cogsContractUnits.value, "Unit Price ($)": els.cogsContractUnitPrice.value, "DL Hours (Total)": els.cogsContractLaborHours.value }, sku, state.cogs.assumptions),
+  });
+  els.cogsContractForm.reset();
+  await finishCogsManualSave(els.cogsContractStatus, `Saved contract ${id}.`);
 });
 
 els.manualApiForm.addEventListener("submit", async (event) => {

@@ -731,6 +731,11 @@
             <h2>Assumptions</h2>
             <span>Labor, overhead, QA, packaging, waste</span>
           </div>
+          <form id="cogsAssumptionsForm" class="cogs-edit-form">
+            <div id="cogsAssumptionFields" class="cogs-assumption-grid"></div>
+            <button type="submit">Save Assumptions</button>
+          </form>
+          <p id="cogsAssumptionsStatus" class="status" role="status"></p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -751,6 +756,50 @@
             <h2>Inventory / Expiry</h2>
             <span>Materials at risk and reorder status</span>
           </div>
+          <form id="cogsInventoryForm" class="cogs-edit-form cogs-inventory-form">
+            <label>
+              Material ID
+              <input id="cogsMaterialId" type="text" placeholder="MAT-001">
+            </label>
+            <label>
+              Material name
+              <input id="cogsMaterialName" type="text" placeholder="Ketoprofen USP">
+            </label>
+            <label>
+              Type
+              <input id="cogsMaterialType" type="text" placeholder="API">
+            </label>
+            <label>
+              UOM
+              <input id="cogsMaterialUnit" type="text" placeholder="g">
+            </label>
+            <label>
+              Qty on hand
+              <input id="cogsMaterialQty" type="number" min="0" step="0.0001" placeholder="0">
+            </label>
+            <label>
+              Reorder point
+              <input id="cogsMaterialReorder" type="number" min="0" step="0.0001" placeholder="0">
+            </label>
+            <label>
+              Unit cost
+              <input id="cogsMaterialUnitCost" type="number" min="0" step="0.0001" placeholder="0.00">
+            </label>
+            <label>
+              Vendor
+              <input id="cogsMaterialVendor" type="text" placeholder="Vendor">
+            </label>
+            <label>
+              Lot
+              <input id="cogsMaterialLot" type="text" placeholder="Lot number">
+            </label>
+            <label>
+              BUD / Expiry
+              <input id="cogsMaterialExpiry" type="date">
+            </label>
+            <button type="submit">Save Material</button>
+          </form>
+          <p id="cogsInventoryStatus" class="status" role="status"></p>
           <div class="table-wrap scroll-table tall">
             <table>
               <thead>
@@ -774,6 +823,45 @@
             <h2>SKU Cost Registry</h2>
             <span>Formula material cost per unit</span>
           </div>
+          <form id="cogsSkuForm" class="cogs-edit-form cogs-sku-form">
+            <label>
+              SKU ID
+              <input id="cogsSkuId" type="text" placeholder="SKU-001">
+            </label>
+            <label>
+              Product name
+              <input id="cogsSkuProduct" type="text" placeholder="Formula name">
+            </label>
+            <label>
+              Type
+              <select id="cogsSkuType">
+                <option value="Rx">Rx</option>
+                <option value="Contract">Contract</option>
+              </select>
+            </label>
+            <label>
+              Dosage form
+              <input id="cogsSkuDosage" type="text" placeholder="Cream/Gel">
+            </label>
+            <label>
+              Batch size
+              <input id="cogsSkuBatchSize" type="number" min="0" step="0.0001" placeholder="100">
+            </label>
+            <label>
+              Batch UOM
+              <input id="cogsSkuBatchUnit" type="text" placeholder="g">
+            </label>
+            <label>
+              Units / batch
+              <input id="cogsSkuUnitsPerBatch" type="number" min="0" step="0.0001" placeholder="100">
+            </label>
+            <label class="wide-field">
+              Ingredients
+              <textarea id="cogsSkuIngredients" rows="3" placeholder="MAT-001, 10&#10;MAT-006, 90"></textarea>
+            </label>
+            <button type="submit">Save SKU</button>
+          </form>
+          <p id="cogsSkuStatus" class="status" role="status"></p>
           <div class="table-wrap scroll-table tall">
             <table>
               <thead>
@@ -797,6 +885,34 @@
               <h2>Rx Profitability</h2>
               <span>Patient names are not stored</span>
             </div>
+            <form id="cogsRxForm" class="cogs-edit-form cogs-rx-form">
+              <label>
+                Rx #
+                <input id="cogsRxId" type="text" placeholder="RX-0001">
+              </label>
+              <label>
+                Date
+                <input id="cogsRxDate" type="date">
+              </label>
+              <label>
+                SKU ID
+                <input id="cogsRxSku" type="text" placeholder="SKU-001">
+              </label>
+              <label>
+                Qty dispensed
+                <input id="cogsRxQty" type="number" min="0" step="0.0001" placeholder="0">
+              </label>
+              <label>
+                Selling price
+                <input id="cogsRxRevenue" type="number" min="0" step="0.0001" placeholder="0.00">
+              </label>
+              <label>
+                DL hours
+                <input id="cogsRxLaborHours" type="number" min="0" step="0.0001" placeholder="0">
+              </label>
+              <button type="submit">Save Rx</button>
+            </form>
+            <p id="cogsRxStatus" class="status" role="status"></p>
             <div class="table-wrap scroll-table tall">
               <table>
                 <thead>
@@ -820,6 +936,38 @@
               <h2>Contract Profitability</h2>
               <span>Bulk order margins</span>
             </div>
+            <form id="cogsContractForm" class="cogs-edit-form cogs-contract-form">
+              <label>
+                Order #
+                <input id="cogsContractId" type="text" placeholder="CON-0001">
+              </label>
+              <label>
+                Date
+                <input id="cogsContractDate" type="date">
+              </label>
+              <label>
+                Client / facility
+                <input id="cogsContractClient" type="text" placeholder="Client">
+              </label>
+              <label>
+                SKU ID
+                <input id="cogsContractSku" type="text" placeholder="SKU-001">
+              </label>
+              <label>
+                Units ordered
+                <input id="cogsContractUnits" type="number" min="0" step="0.0001" placeholder="0">
+              </label>
+              <label>
+                Unit price
+                <input id="cogsContractUnitPrice" type="number" min="0" step="0.0001" placeholder="0.00">
+              </label>
+              <label>
+                DL hours
+                <input id="cogsContractLaborHours" type="number" min="0" step="0.0001" placeholder="0">
+              </label>
+              <button type="submit">Save Contract</button>
+            </form>
+            <p id="cogsContractStatus" class="status" role="status"></p>
             <div class="table-wrap scroll-table tall">
               <table>
                 <thead>
