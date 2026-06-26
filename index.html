@@ -498,6 +498,28 @@
               </article>
             </div>
             <div class="builder-list" id="builderSelections"></div>
+            <form id="builderProfitForm" class="builder-profit-form">
+              <label>
+                Margin type
+                <select id="builderProfitStream">
+                  <option value="rx">Rx</option>
+                  <option value="contract">Contract</option>
+                </select>
+              </label>
+              <label>
+                Quantity
+                <input id="builderProfitQuantity" type="number" min="0" step="0.0001" value="1">
+              </label>
+              <label>
+                Selling price
+                <input id="builderProfitRevenue" type="number" min="0" step="0.0001" placeholder="0.00">
+              </label>
+              <label>
+                Labor hours
+                <input id="builderProfitLaborHours" type="number" min="0" step="0.0001" value="0">
+              </label>
+              <button type="submit">Calculate Margin</button>
+            </form>
             <button id="clearBuilderBtn" class="ghost" type="button">Clear Builder</button>
           </section>
         </div>
@@ -634,6 +656,28 @@
               </article>
             </div>
             <div class="builder-list" id="materialBuilderSelections"></div>
+            <form id="materialBuilderProfitForm" class="builder-profit-form">
+              <label>
+                Margin type
+                <select id="materialBuilderProfitStream">
+                  <option value="rx">Rx</option>
+                  <option value="contract">Contract</option>
+                </select>
+              </label>
+              <label>
+                Quantity
+                <input id="materialBuilderProfitQuantity" type="number" min="0" step="0.0001" value="1">
+              </label>
+              <label>
+                Selling price
+                <input id="materialBuilderProfitRevenue" type="number" min="0" step="0.0001" placeholder="0.00">
+              </label>
+              <label>
+                Labor hours
+                <input id="materialBuilderProfitLaborHours" type="number" min="0" step="0.0001" value="0">
+              </label>
+              <button type="submit">Calculate Margin</button>
+            </form>
             <button id="materialClearBuilderBtn" class="ghost" type="button">Clear Builder</button>
           </section>
         </div>

@@ -484,6 +484,22 @@ body:not(.locked) #lockedNotice {
   margin: 14px 0;
 }
 
+.builder-profit-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.builder-profit-form label {
+  min-width: 0;
+}
+
 .builder-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -804,6 +820,7 @@ tbody tr:last-child td {
 
   .manual-cost-form,
   .manual-cost-form.sku-manual-form,
+  .builder-profit-form,
   .cogs-edit-form,
   .cogs-assumption-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -828,6 +845,7 @@ tbody tr:last-child td {
   .filters,
   .manual-cost-form,
   .manual-cost-form.sku-manual-form,
+  .builder-profit-form,
   .cogs-edit-form,
   .cogs-assumption-grid,
   .pricing-upload {

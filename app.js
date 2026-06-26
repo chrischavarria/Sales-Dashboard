@@ -171,11 +171,21 @@ const els = {
   builderMaterialTotal: document.querySelector("#builderMaterialTotal"),
   builderGrandTotal: document.querySelector("#builderGrandTotal"),
   builderSelections: document.querySelector("#builderSelections"),
+  builderProfitForm: document.querySelector("#builderProfitForm"),
+  builderProfitStream: document.querySelector("#builderProfitStream"),
+  builderProfitQuantity: document.querySelector("#builderProfitQuantity"),
+  builderProfitRevenue: document.querySelector("#builderProfitRevenue"),
+  builderProfitLaborHours: document.querySelector("#builderProfitLaborHours"),
   clearBuilderBtn: document.querySelector("#clearBuilderBtn"),
   materialBuilderApiTotal: document.querySelector("#materialBuilderApiTotal"),
   materialBuilderMaterialTotal: document.querySelector("#materialBuilderMaterialTotal"),
   materialBuilderGrandTotal: document.querySelector("#materialBuilderGrandTotal"),
   materialBuilderSelections: document.querySelector("#materialBuilderSelections"),
+  materialBuilderProfitForm: document.querySelector("#materialBuilderProfitForm"),
+  materialBuilderProfitStream: document.querySelector("#materialBuilderProfitStream"),
+  materialBuilderProfitQuantity: document.querySelector("#materialBuilderProfitQuantity"),
+  materialBuilderProfitRevenue: document.querySelector("#materialBuilderProfitRevenue"),
+  materialBuilderProfitLaborHours: document.querySelector("#materialBuilderProfitLaborHours"),
   materialClearBuilderBtn: document.querySelector("#materialClearBuilderBtn"),
   cogsWorkbookForm: document.querySelector("#cogsWorkbookForm"),
   cogsWorkbookFile: document.querySelector("#cogsWorkbookFile"),
@@ -2071,6 +2081,56 @@ function selectedMaterials() {
   return state.materialCosts.filter((item) => builderState.materials.has(item.id));
 }
 
+function activateTab(target) {
+  document.querySelectorAll(".tab-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === target);
+  });
+  document.querySelectorAll(".tab-view").forEach((view) => {
+    view.classList.toggle("active", view.dataset.tabView === target);
+  });
+  document.body.classList.toggle("home-active", target === "home");
+}
+
+function builderProfitFields(source) {
+  const prefix = source === "material" ? "materialBuilderProfit" : "builderProfit";
+  return {
+    stream: els[`${prefix}Stream`],
+    quantity: els[`${prefix}Quantity`],
+    revenue: els[`${prefix}Revenue`],
+    laborHours: els[`${prefix}LaborHours`],
+  };
+}
+
+function syncBuilderProfitFields(source) {
+  const activeFields = builderProfitFields(source);
+  const mirrorFields = builderProfitFields(source === "material" ? "api" : "material");
+  Object.keys(activeFields).forEach((key) => {
+    if (activeFields[key] && mirrorFields[key]) mirrorFields[key].value = activeFields[key].value;
+  });
+}
+
+function sendBuilderToProfitability(source) {
+  syncBuilderProfitFields(source);
+  const fields = builderProfitFields(source);
+  profitabilityState.apis = new Set(builderState.apis);
+  profitabilityState.materials = new Set(builderState.materials);
+  profitabilityState.result = null;
+
+  if (els.profitabilitySku) els.profitabilitySku.value = "";
+  if (els.profitabilityStream && fields.stream) els.profitabilityStream.value = fields.stream.value || "rx";
+  if (els.profitabilityQuantity && fields.quantity) els.profitabilityQuantity.value = fields.quantity.value || "1";
+  if (els.profitabilityRevenue && fields.revenue) els.profitabilityRevenue.value = fields.revenue.value || "";
+  if (els.profitabilityLaborHours && fields.laborHours) els.profitabilityLaborHours.value = fields.laborHours.value || "0";
+
+  profitabilityState.result = calculateProfitabilityScenario();
+  renderProfitabilityBuilder();
+  activateTab("profitability");
+  if (els.profitabilityStatus) {
+    const streamLabel = els.profitabilityStream.value === "contract" ? "contract" : "Rx";
+    els.profitabilityStatus.textContent = `Calculated ${streamLabel} margin from the Pricing Builder selections.`;
+  }
+}
+
 async function importCostFile({ file, normalizer, collection, statusEl, label }) {
   if (!file) {
     statusEl.textContent = `Choose a ${label} file first.`;
@@ -2452,10 +2512,7 @@ els.refreshCloudBtn.addEventListener("click", forceCloudRefresh);
 
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => {
-    const target = button.dataset.tab;
-    document.querySelectorAll(".tab-button").forEach((item) => item.classList.toggle("active", item === button));
-    document.querySelectorAll(".tab-view").forEach((view) => view.classList.toggle("active", view.dataset.tabView === target));
-    document.body.classList.toggle("home-active", target === "home");
+    activateTab(button.dataset.tab);
   });
 });
 
@@ -2609,6 +2666,29 @@ els.profitabilityForm?.addEventListener("submit", (event) => {
   profitabilityState.result = calculateProfitabilityScenario();
   els.profitabilityStatus.textContent = `Calculated ${els.profitabilityStream.value === "contract" ? "contract" : "Rx"} profitability.`;
   renderProfitabilityBuilder();
+});
+
+els.builderProfitForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendBuilderToProfitability("api");
+});
+
+els.materialBuilderProfitForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendBuilderToProfitability("material");
+});
+
+[els.builderProfitStream, els.builderProfitQuantity, els.builderProfitRevenue, els.builderProfitLaborHours].forEach((input) => {
+  input?.addEventListener("input", () => syncBuilderProfitFields("api"));
+});
+
+[
+  els.materialBuilderProfitStream,
+  els.materialBuilderProfitQuantity,
+  els.materialBuilderProfitRevenue,
+  els.materialBuilderProfitLaborHours,
+].forEach((input) => {
+  input?.addEventListener("input", () => syncBuilderProfitFields("material"));
 });
 
 els.manualApiForm.addEventListener("submit", async (event) => {
