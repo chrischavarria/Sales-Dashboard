@@ -217,6 +217,8 @@ const els = {
   profitCogs: document.querySelector("#profitCogs"),
   profitGrossProfit: document.querySelector("#profitGrossProfit"),
   profitGrossMargin: document.querySelector("#profitGrossMargin"),
+  profitRequiredPrice: document.querySelector("#profitRequiredPrice"),
+  profitPriceGap: document.querySelector("#profitPriceGap"),
   profitBreakdownTable: document.querySelector("#profitBreakdownTable"),
 };
 
@@ -1509,6 +1511,9 @@ function calculateProfitabilityScenario() {
   const grossProfit = revenue - totalCogs;
   const grossMargin = revenue ? grossProfit / revenue : 0;
   const marginFloor = profitabilityMarginFloor();
+  const requiredRevenue = marginFloor < 1 ? totalCogs / (1 - marginFloor) : 0;
+  const requiredPrice = stream === "contract" && quantity ? requiredRevenue / quantity : requiredRevenue;
+  const priceGap = price - requiredPrice;
   return {
     stream,
     sku,
@@ -1526,6 +1531,9 @@ function calculateProfitabilityScenario() {
     grossProfit,
     grossMargin,
     marginFloor,
+    requiredRevenue,
+    requiredPrice,
+    priceGap,
     marginStatus: revenue ? (grossMargin >= marginFloor ? "MARGIN OK" : "BELOW FLOOR") : "NO PRICE",
   };
 }
@@ -1537,13 +1545,17 @@ function renderProfitabilityBuilder() {
   els.profitCogs.textContent = money(result.totalCogs);
   els.profitGrossProfit.textContent = money(result.grossProfit);
   els.profitGrossMargin.textContent = percent(result.grossMargin);
+  els.profitRequiredPrice.textContent = money(result.requiredPrice);
+  els.profitPriceGap.textContent = money(result.priceGap);
   els.profitGrossMargin.closest(".metric")?.classList.toggle("danger-metric", result.marginStatus === "BELOW FLOOR");
   els.profitGrossProfit.closest(".metric")?.classList.toggle("danger-metric", result.grossProfit < 0);
+  els.profitPriceGap.closest(".metric")?.classList.toggle("danger-metric", result.priceGap < 0);
   if (els.profitabilityStatus) {
     const streamLabel = result.stream === "contract" ? "Contract" : "Rx";
+    const priceLabel = result.stream === "contract" ? "unit price" : "total price";
     els.profitabilityStatus.textContent = result.marginStatus === "NO PRICE"
       ? "Enter a selling price to check the margin floor."
-      : `${streamLabel} ${result.marginStatus}: ${percent(result.grossMargin)} margin vs ${percent(result.marginFloor)} floor.`;
+      : `${streamLabel} ${result.marginStatus}: ${percent(result.grossMargin)} margin vs ${percent(result.marginFloor)} floor. Required ${priceLabel}: ${money(result.requiredPrice)}.`;
     els.profitabilityStatus.classList.toggle("danger-text", result.marginStatus === "BELOW FLOOR");
   }
 
@@ -2757,7 +2769,6 @@ els.profitabilityAddMaterial?.addEventListener("click", () => {
 els.profitabilityForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   profitabilityState.result = calculateProfitabilityScenario();
-  els.profitabilityStatus.textContent = `Calculated ${els.profitabilityStream.value === "contract" ? "contract" : "Rx"} profitability.`;
   renderProfitabilityBuilder();
 });
 
