@@ -1486,7 +1486,7 @@ function calculateProfitabilityScenario() {
   const directLabor = laborHours * (stream === "contract" ? assumptions.contractLaborRate : assumptions.rxLaborRate);
   const indirectLabor = directLabor * assumptions.indirectLaborRate;
   const qaCost = stream === "contract" ? quantity * assumptions.qaContract : assumptions.qaRx;
-  const packaging = quantity * (stream === "contract" ? assumptions.packagingContract : assumptions.packagingRx);
+  const packaging = stream === "contract" ? quantity * assumptions.packagingContract : assumptions.packagingRx;
   const overheadBase = cogsOverheadTotal(assumptions);
   const overhead = stream === "contract"
     ? quantity * overheadBase / (assumptions.contractOverheadUnits || 1)
@@ -1947,7 +1947,7 @@ function calculateRxCogs(row, sku, assumptions) {
   const directLabor = laborHours * assumptions.rxLaborRate;
   const indirectLabor = directLabor * assumptions.indirectLaborRate;
   const qaCost = sku ? assumptions.qaRx : 0;
-  const packaging = sku ? quantity * assumptions.packagingRx : 0;
+  const packaging = sku ? assumptions.packagingRx : 0;
   const overhead = sku ? cogsOverheadTotal(assumptions) / (assumptions.rxOverheadUnits || 1) : 0;
   const waste = materialCost * assumptions.wasteFactor;
   const totalCogs = materialCost + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
