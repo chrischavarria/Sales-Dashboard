@@ -1462,7 +1462,8 @@ function calculateProfitabilityScenario() {
   const assumptions = state.cogs?.assumptions || DEFAULT_COGS_ASSUMPTIONS;
   const stream = els.profitabilityStream?.value || "rx";
   const quantity = parseAmount(els.profitabilityQuantity?.value);
-  const revenue = parseAmount(els.profitabilityRevenue?.value);
+  const price = parseAmount(els.profitabilityRevenue?.value);
+  const revenue = stream === "contract" ? quantity * price : price;
   const laborHours = parseAmount(els.profitabilityLaborHours?.value);
   const sku = selectedProfitSku();
   const extraApis = selectedProfitApis();
@@ -1484,6 +1485,7 @@ function calculateProfitabilityScenario() {
     stream,
     sku,
     quantity,
+    price,
     revenue,
     directMaterials,
     directLabor,
