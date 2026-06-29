@@ -28,6 +28,20 @@ const DEFAULT_COGS_ASSUMPTIONS = {
   marginFloor: 0.4,
 };
 
+const LEGACY_COGS_ASSUMPTIONS = {
+  contractLaborRate: 25,
+  monthlyRent: 6500,
+  monthlyUtilities: 6500,
+  monthlyMarketing: 500,
+  monthlySoftware: 800,
+  monthlyOther: 100000,
+  rxOverheadUnits: 8400,
+  contractOverheadUnits: 42500,
+  qaRx: 8,
+  qaContract: 3,
+  packagingRx: 8,
+};
+
 const COGS_ASSUMPTION_ROWS = [
   ["rxLaborRate", "Direct Labor - Rx", "$/hr", "Avg wage incl. benefits for compounding tech - Rx"],
   ["contractLaborRate", "Direct Labor - Contract", "$/hr", "Avg wage incl. benefits for compounding tech - Contract"],
@@ -341,7 +355,7 @@ function loadState(sourceState) {
       skuCosts: Array.isArray(parsed.skuCosts) ? parsed.skuCosts : [],
       materialCosts: Array.isArray(parsed.materialCosts) ? parsed.materialCosts : [],
       cogs: {
-        assumptions: { ...DEFAULT_COGS_ASSUMPTIONS, ...(parsed.cogs?.assumptions || {}) },
+        assumptions: normalizeSavedAssumptions(parsed.cogs?.assumptions),
         inventory: Array.isArray(parsed.cogs?.inventory) ? parsed.cogs.inventory : [],
         skuRegistry: Array.isArray(parsed.cogs?.skuRegistry) ? parsed.cogs.skuRegistry : [],
         rxPrescriptions: Array.isArray(parsed.cogs?.rxPrescriptions) ? parsed.cogs.rxPrescriptions : [],
@@ -352,6 +366,16 @@ function loadState(sourceState) {
   } catch {
     return fallback;
   }
+}
+
+function isLegacyAssumptionSet(assumptions) {
+  if (!assumptions) return false;
+  return Object.entries(LEGACY_COGS_ASSUMPTIONS).every(([key, value]) => Number(assumptions[key]) === value);
+}
+
+function normalizeSavedAssumptions(savedAssumptions) {
+  const assumptions = { ...DEFAULT_COGS_ASSUMPTIONS, ...(savedAssumptions || {}) };
+  return isLegacyAssumptionSet(savedAssumptions) ? { ...assumptions, ...DEFAULT_COGS_ASSUMPTIONS } : assumptions;
 }
 
 function localStateSnapshot() {
