@@ -10,21 +10,22 @@ const EXPIRY_WARNING_DAYS = 30;
 
 const DEFAULT_COGS_ASSUMPTIONS = {
   rxLaborRate: 28,
-  contractLaborRate: 25,
+  contractLaborRate: 30,
   indirectLaborRate: 0.6,
-  monthlyRent: 6500,
-  monthlyUtilities: 6500,
+  monthlyRent: 6513,
+  monthlyUtilities: 5005,
   monthlyDepreciation: 1200,
-  monthlyMarketing: 500,
-  monthlySoftware: 800,
-  monthlyOther: 100000,
-  rxOverheadUnits: 8400,
-  contractOverheadUnits: 42500,
+  monthlyMarketing: 5200,
+  monthlySoftware: 30291,
+  monthlyOther: 60000,
+  rxOverheadUnits: 53333,
+  contractOverheadUnits: 53333,
   wasteFactor: 0.01,
-  qaRx: 8,
-  qaContract: 3,
-  packagingRx: 8,
+  qaRx: 0,
+  qaContract: 0,
+  packagingRx: 0,
   packagingContract: 9.36,
+  marginFloor: 0.4,
 };
 
 const COGS_ASSUMPTION_ROWS = [
@@ -44,6 +45,7 @@ const COGS_ASSUMPTION_ROWS = [
   ["qaContract", "QA / Testing Cost per Batch - Contract", "$", "Lab testing per contract unit"],
   ["packagingRx", "Packaging Cost per Unit - Rx", "$", "Labels, bags, vials for Rx"],
   ["packagingContract", "Packaging Cost per Unit - Contract", "$", "Labels, bags, vials for contract"],
+  ["marginFloor", "Target Margin Floor", "%", "Flags modeled profitability below this gross margin"],
 ];
 
 const sampleCsv = `Practice Name,Quantity,Drug Name,Patient Price,Shipping Cost,Reason for Replacment or Reshipment,Written in Reason,Tracking Number
@@ -204,6 +206,7 @@ const els = {
   profitabilityQuantity: document.querySelector("#profitabilityQuantity"),
   profitabilityRevenue: document.querySelector("#profitabilityRevenue"),
   profitabilityLaborHours: document.querySelector("#profitabilityLaborHours"),
+  profitabilityMarginFloor: document.querySelector("#profitabilityMarginFloor"),
   profitabilityApi: document.querySelector("#profitabilityApi"),
   profitabilityAddApi: document.querySelector("#profitabilityAddApi"),
   profitabilityMaterial: document.querySelector("#profitabilityMaterial"),
@@ -1411,6 +1414,10 @@ function renderCogs() {
     </tr>`).join("");
   }
 
+  if (els.profitabilityMarginFloor && !parseAmount(els.profitabilityMarginFloor.value)) {
+    els.profitabilityMarginFloor.value = amountInputValue((assumptions.marginFloor ?? DEFAULT_COGS_ASSUMPTIONS.marginFloor) * 100);
+  }
+
   renderProfitabilityBuilder();
 
   els.cogsRxTable.innerHTML = rxRows.length
@@ -1447,13 +1454,13 @@ function statusClass(status) {
 }
 
 function assumptionInputValue(key, value) {
-  if (key === "indirectLaborRate" || key === "wasteFactor") return Number(value || 0) * 100;
+  if (key === "indirectLaborRate" || key === "wasteFactor" || key === "marginFloor") return Number(value || 0) * 100;
   return Number(value || 0);
 }
 
 function normalizeAssumptionInput(key, value) {
   const amount = parseAmount(value);
-  if (key === "indirectLaborRate" || key === "wasteFactor") return amount / 100;
+  if (key === "indirectLaborRate" || key === "wasteFactor" || key === "marginFloor") return amount / 100;
   return amount;
 }
 
@@ -1468,6 +1475,12 @@ function selectedProfitMaterials() {
 function selectedProfitSku() {
   const formula = els.profitabilitySku?.value || "";
   return skuSummaryRows().find((item) => normalizeKey(item.formula) === normalizeKey(formula)) || null;
+}
+
+function profitabilityMarginFloor() {
+  const inputValue = parseAmount(els.profitabilityMarginFloor?.value);
+  const assumptionValue = state.cogs?.assumptions?.marginFloor ?? DEFAULT_COGS_ASSUMPTIONS.marginFloor;
+  return inputValue ? inputValue / 100 : assumptionValue;
 }
 
 function calculateProfitabilityScenario() {
@@ -1494,6 +1507,8 @@ function calculateProfitabilityScenario() {
   const waste = directMaterials * assumptions.wasteFactor;
   const totalCogs = directMaterials + directLabor + indirectLabor + qaCost + packaging + overhead + waste;
   const grossProfit = revenue - totalCogs;
+  const grossMargin = revenue ? grossProfit / revenue : 0;
+  const marginFloor = profitabilityMarginFloor();
   return {
     stream,
     sku,
@@ -1509,7 +1524,9 @@ function calculateProfitabilityScenario() {
     waste,
     totalCogs,
     grossProfit,
-    grossMargin: revenue ? grossProfit / revenue : 0,
+    grossMargin,
+    marginFloor,
+    marginStatus: revenue ? (grossMargin >= marginFloor ? "MARGIN OK" : "BELOW FLOOR") : "NO PRICE",
   };
 }
 
@@ -1520,6 +1537,15 @@ function renderProfitabilityBuilder() {
   els.profitCogs.textContent = money(result.totalCogs);
   els.profitGrossProfit.textContent = money(result.grossProfit);
   els.profitGrossMargin.textContent = percent(result.grossMargin);
+  els.profitGrossMargin.closest(".metric")?.classList.toggle("danger-metric", result.marginStatus === "BELOW FLOOR");
+  els.profitGrossProfit.closest(".metric")?.classList.toggle("danger-metric", result.grossProfit < 0);
+  if (els.profitabilityStatus) {
+    const streamLabel = result.stream === "contract" ? "Contract" : "Rx";
+    els.profitabilityStatus.textContent = result.marginStatus === "NO PRICE"
+      ? "Enter a selling price to check the margin floor."
+      : `${streamLabel} ${result.marginStatus}: ${percent(result.grossMargin)} margin vs ${percent(result.marginFloor)} floor.`;
+    els.profitabilityStatus.classList.toggle("danger-text", result.marginStatus === "BELOW FLOOR");
+  }
 
   const selectedItems = [
     ...(result.sku ? [{ id: "sku", name: result.sku.formula, kind: "SKU", cost: result.quantity * parseAmount(result.sku.costPerGram || result.sku.unitCost), unit: "grams" }] : []),
@@ -1817,6 +1843,7 @@ function assumptionFromLabel(label) {
   if (key.includes("testingcostperbatchcontract")) return "qaContract";
   if (key.includes("packagingcostperunitrx")) return "packagingRx";
   if (key.includes("packagingcostperunitcontract")) return "packagingContract";
+  if (key.includes("marginfloor") || key.includes("targetmargin")) return "marginFloor";
   return "";
 }
 
@@ -2172,10 +2199,6 @@ function sendBuilderToProfitability(source) {
   profitabilityState.result = calculateProfitabilityScenario();
   renderProfitabilityBuilder();
   activateTab("profitability");
-  if (els.profitabilityStatus) {
-    const streamLabel = els.profitabilityStream.value === "contract" ? "contract" : "Rx";
-    els.profitabilityStatus.textContent = `Calculated ${streamLabel} margin from the Pricing Builder selections.`;
-  }
 }
 
 async function importCostFile({ file, normalizer, collection, statusEl, label }) {
@@ -2744,6 +2767,7 @@ els.profitabilityForm?.addEventListener("submit", (event) => {
   els.profitabilityQuantity,
   els.profitabilityRevenue,
   els.profitabilityLaborHours,
+  els.profitabilityMarginFloor,
 ].forEach((input) => {
   input?.addEventListener("input", () => {
     profitabilityState.result = calculateProfitabilityScenario();

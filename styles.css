@@ -543,6 +543,10 @@ body:not(.locked) #lockedNotice {
   text-transform: none;
 }
 
+.status.danger-text {
+  color: var(--danger);
+}
+
 /* ---------- Pills ---------- */
 .pill-list {
   display: flex;
@@ -657,6 +661,15 @@ body:not(.locked) #lockedNotice {
 
 .metric.accent-sage strong {
   color: var(--green-700);
+}
+
+.metric.danger-metric {
+  border-color: #ffc8bd;
+  background: linear-gradient(180deg, #fff2ef 0%, var(--surface) 70%);
+}
+
+.metric.danger-metric strong {
+  color: var(--danger);
 }
 
 /* ---------- Charts ---------- */
