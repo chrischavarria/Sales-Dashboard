@@ -502,7 +502,7 @@ body:not(.locked) #lockedNotice {
 
 .builder-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(105px, 130px) auto auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--line);
@@ -518,6 +518,19 @@ body:not(.locked) #lockedNotice {
 .builder-item span {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.builder-quantity {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.builder-quantity input {
+  min-height: 34px;
+  padding: 7px 8px;
 }
 
 .status {
@@ -855,5 +868,10 @@ tbody tr:last-child td {
   .cogs-assumption-grid,
   .cogs-edit-form .wide-field {
     grid-column: auto;
+  }
+
+  .builder-item {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }

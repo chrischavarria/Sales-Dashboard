@@ -65,11 +65,13 @@ let saveTimer = null;
 const builderState = {
   apis: new Set(),
   materials: new Set(),
+  apiQuantities: new Map(),
 };
 const expandedSkus = new Set();
 const profitabilityState = {
   apis: new Set(),
   materials: new Set(),
+  apiQuantities: new Map(),
   result: null,
 };
 
@@ -569,6 +571,11 @@ function number(value) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0);
 }
 
+function amountInputValue(value) {
+  const amount = parseAmount(value);
+  return Number.isFinite(amount) ? String(Number(amount.toFixed(4))) : "0";
+}
+
 function percent(value) {
   if (value === Infinity) return "New";
   if (!Number.isFinite(value)) return "N/A";
@@ -895,7 +902,7 @@ function renderOptions() {
   if (els.profitabilitySku) {
     const skuOptions = skuSummaryRows()
       .sort((a, b) => a.formula.localeCompare(b.formula))
-      .map((sku) => `<option value="${escapeHtml(sku.formula)}">${escapeHtml(sku.formula)} (${money(sku.unitCost || sku.costPerGram)})</option>`)
+      .map((sku) => `<option value="${escapeHtml(sku.formula)}">${escapeHtml(sku.formula)} (${money(sku.costPerGram || sku.unitCost)}/gm)</option>`)
       .join("");
     const apiOptions = state.apiCosts
       .slice()
@@ -1343,11 +1350,12 @@ function renderCostTables() {
 function renderBuilder() {
   const apis = selectedApis();
   const materials = selectedMaterials();
-  const apiTotal = sum(apis, "cost");
+  const batchGrams = builderBatchQuantity();
+  const apiTotal = sumApiIngredientCosts(apis, builderState.apiQuantities, batchGrams);
   const materialTotal = sum(materials, "cost");
   const items = [
-    ...apis.map((item) => ({ ...item, kind: "API", removeAttr: "data-remove-api" })),
-    ...materials.map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-material" })),
+    ...apis.map((item) => ({ ...item, kind: "API", removeAttr: "data-remove-api", unitCost: parseAmount(item.cost), cost: apiIngredientCost(item, builderState.apiQuantities, batchGrams) })),
+    ...materials.map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-material", cost: parseAmount(item.cost) })),
   ];
 
   els.builderApiTotal.textContent = money(apiTotal);
@@ -1361,8 +1369,12 @@ function renderBuilder() {
         .map((item) => `<div class="builder-item">
           <div>
             <strong>${escapeHtml(item.name)}</strong>
-            <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}</span>
+            <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}${item.kind === "API" ? ` · ${money(item.unitCost)} per unit` : ""}</span>
           </div>
+          ${item.kind === "API" ? `<label class="builder-quantity">
+            Qty per 100gm
+            <input data-builder-api-qty="${item.id}" type="number" min="0" step="0.0001" value="${amountInputValue(builderApiQuantity(item.id))}">
+          </label>` : "<span></span>"}
           <span>${money(item.cost)}</span>
           <button class="small danger" ${item.removeAttr}="${item.id}" type="button">Remove</button>
         </div>`)
@@ -1468,8 +1480,9 @@ function calculateProfitabilityScenario() {
   const sku = selectedProfitSku();
   const extraApis = selectedProfitApis();
   const extraMaterials = selectedProfitMaterials();
-  const skuUnitCost = parseAmount(sku?.unitCost || sku?.costPerGram);
-  const directMaterials = quantity * skuUnitCost + sum(extraApis, "cost") + sum(extraMaterials, "cost");
+  const skuUnitCost = parseAmount(sku?.costPerGram || sku?.unitCost);
+  const apiCost = sumApiIngredientCosts(extraApis, profitabilityState.apiQuantities, quantity);
+  const directMaterials = quantity * skuUnitCost + apiCost + sum(extraMaterials, "cost");
   const directLabor = laborHours * (stream === "contract" ? assumptions.contractLaborRate : assumptions.rxLaborRate);
   const indirectLabor = directLabor * assumptions.indirectLaborRate;
   const qaCost = stream === "contract" ? quantity * assumptions.qaContract : assumptions.qaRx;
@@ -1509,16 +1522,26 @@ function renderProfitabilityBuilder() {
   els.profitGrossMargin.textContent = percent(result.grossMargin);
 
   const selectedItems = [
-    ...(result.sku ? [{ id: "sku", name: result.sku.formula, kind: "SKU", cost: parseAmount(result.sku.unitCost || result.sku.costPerGram), unit: "unit" }] : []),
-    ...selectedProfitApis().map((item) => ({ ...item, kind: "API", removeAttr: "data-remove-profit-api" })),
-    ...selectedProfitMaterials().map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-profit-material" })),
+    ...(result.sku ? [{ id: "sku", name: result.sku.formula, kind: "SKU", cost: result.quantity * parseAmount(result.sku.costPerGram || result.sku.unitCost), unit: "grams" }] : []),
+    ...selectedProfitApis().map((item) => ({
+      ...item,
+      kind: "API",
+      removeAttr: "data-remove-profit-api",
+      unitCost: parseAmount(item.cost),
+      cost: apiIngredientCost(item, profitabilityState.apiQuantities, result.quantity),
+    })),
+    ...selectedProfitMaterials().map((item) => ({ ...item, kind: "Material", removeAttr: "data-remove-profit-material", cost: parseAmount(item.cost) })),
   ];
   els.profitabilitySelections.innerHTML = selectedItems.length
     ? selectedItems.map((item) => `<div class="builder-item">
         <div>
           <strong>${escapeHtml(item.name)}</strong>
-          <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}</span>
+          <span>${escapeHtml(item.kind)} · ${escapeHtml(item.unit || "unit")}${item.kind === "API" ? ` · ${money(item.unitCost)} per unit` : ""}</span>
         </div>
+        ${item.kind === "API" ? `<label class="builder-quantity">
+          Qty per 100gm
+          <input data-profit-api-qty="${item.id}" type="number" min="0" step="0.0001" value="${amountInputValue(profitApiQuantity(item.id))}">
+        </label>` : "<span></span>"}
         <span>${money(item.cost)}</span>
         ${item.removeAttr ? `<button class="small danger" ${item.removeAttr}="${item.id}" type="button">Remove</button>` : "<span></span>"}
       </div>`).join("")
@@ -2083,6 +2106,27 @@ function selectedMaterials() {
   return state.materialCosts.filter((item) => builderState.materials.has(item.id));
 }
 
+function builderBatchQuantity() {
+  return parseAmount(els.builderProfitQuantity?.value || els.materialBuilderProfitQuantity?.value) || SKU_BATCH_GRAMS;
+}
+
+function builderApiQuantity(id) {
+  return parseAmount(builderState.apiQuantities.get(id) ?? 1);
+}
+
+function profitApiQuantity(id) {
+  return parseAmount(profitabilityState.apiQuantities.get(id) ?? builderState.apiQuantities.get(id) ?? 1);
+}
+
+function apiIngredientCost(item, quantityMap, batchGrams) {
+  const perHundredGrams = parseAmount(quantityMap.get(item.id) ?? 1);
+  return parseAmount(item.cost) * perHundredGrams * (parseAmount(batchGrams) || 0) / SKU_BATCH_GRAMS;
+}
+
+function sumApiIngredientCosts(items, quantityMap, batchGrams) {
+  return items.reduce((total, item) => total + apiIngredientCost(item, quantityMap, batchGrams), 0);
+}
+
 function activateTab(target) {
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === target);
@@ -2116,6 +2160,7 @@ function sendBuilderToProfitability(source) {
   const fields = builderProfitFields(source);
   profitabilityState.apis = new Set(builderState.apis);
   profitabilityState.materials = new Set(builderState.materials);
+  profitabilityState.apiQuantities = new Map(builderState.apiQuantities);
   profitabilityState.result = null;
 
   if (els.profitabilitySku) els.profitabilitySku.value = "";
@@ -2358,6 +2403,7 @@ document.addEventListener("click", (event) => {
 
   if (removeProfitApiId) {
     profitabilityState.apis.delete(removeProfitApiId);
+    profitabilityState.apiQuantities.delete(removeProfitApiId);
     profitabilityState.result = calculateProfitabilityScenario();
     renderProfitabilityBuilder();
     return;
@@ -2372,6 +2418,7 @@ document.addEventListener("click", (event) => {
 
   if (addApiId) {
     builderState.apis.add(addApiId);
+    if (!builderState.apiQuantities.has(addApiId)) builderState.apiQuantities.set(addApiId, 1);
     renderBuilder();
     return;
   }
@@ -2384,6 +2431,7 @@ document.addEventListener("click", (event) => {
 
   if (removeApiId) {
     builderState.apis.delete(removeApiId);
+    builderState.apiQuantities.delete(removeApiId);
     renderBuilder();
     return;
   }
@@ -2528,6 +2576,23 @@ els.apiCostForm.addEventListener("submit", async (event) => {
   }
 });
 
+document.addEventListener("change", (event) => {
+  const builderApiId = event.target.dataset?.builderApiQty;
+  const profitApiId = event.target.dataset?.profitApiQty;
+
+  if (builderApiId) {
+    builderState.apiQuantities.set(builderApiId, parseAmount(event.target.value));
+    renderBuilder();
+    return;
+  }
+
+  if (profitApiId) {
+    profitabilityState.apiQuantities.set(profitApiId, parseAmount(event.target.value));
+    profitabilityState.result = calculateProfitabilityScenario();
+    renderProfitabilityBuilder();
+  }
+});
+
 els.pricingWorkbookForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -2651,7 +2716,10 @@ els.cogsContractForm?.addEventListener("submit", async (event) => {
 
 els.profitabilityAddApi?.addEventListener("click", () => {
   const id = els.profitabilityApi.value;
-  if (id) profitabilityState.apis.add(id);
+  if (id) {
+    profitabilityState.apis.add(id);
+    if (!profitabilityState.apiQuantities.has(id)) profitabilityState.apiQuantities.set(id, builderState.apiQuantities.get(id) ?? 1);
+  }
   profitabilityState.result = calculateProfitabilityScenario();
   renderProfitabilityBuilder();
 });
@@ -2670,6 +2738,19 @@ els.profitabilityForm?.addEventListener("submit", (event) => {
   renderProfitabilityBuilder();
 });
 
+[
+  els.profitabilityStream,
+  els.profitabilitySku,
+  els.profitabilityQuantity,
+  els.profitabilityRevenue,
+  els.profitabilityLaborHours,
+].forEach((input) => {
+  input?.addEventListener("input", () => {
+    profitabilityState.result = calculateProfitabilityScenario();
+    renderProfitabilityBuilder();
+  });
+});
+
 els.builderProfitForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   sendBuilderToProfitability("api");
@@ -2681,7 +2762,10 @@ els.materialBuilderProfitForm?.addEventListener("submit", (event) => {
 });
 
 [els.builderProfitStream, els.builderProfitQuantity, els.builderProfitRevenue, els.builderProfitLaborHours].forEach((input) => {
-  input?.addEventListener("input", () => syncBuilderProfitFields("api"));
+  input?.addEventListener("input", () => {
+    syncBuilderProfitFields("api");
+    if (input === els.builderProfitQuantity) renderBuilder();
+  });
 });
 
 [
@@ -2690,7 +2774,10 @@ els.materialBuilderProfitForm?.addEventListener("submit", (event) => {
   els.materialBuilderProfitRevenue,
   els.materialBuilderProfitLaborHours,
 ].forEach((input) => {
-  input?.addEventListener("input", () => syncBuilderProfitFields("material"));
+  input?.addEventListener("input", () => {
+    syncBuilderProfitFields("material");
+    if (input === els.materialBuilderProfitQuantity) renderBuilder();
+  });
 });
 
 els.manualApiForm.addEventListener("submit", async (event) => {
@@ -2802,12 +2889,14 @@ els.manualMaterialForm.addEventListener("submit", async (event) => {
 els.clearBuilderBtn.addEventListener("click", () => {
   builderState.apis.clear();
   builderState.materials.clear();
+  builderState.apiQuantities.clear();
   renderBuilder();
 });
 
 els.materialClearBuilderBtn.addEventListener("click", () => {
   builderState.apis.clear();
   builderState.materials.clear();
+  builderState.apiQuantities.clear();
   renderBuilder();
 });
 
