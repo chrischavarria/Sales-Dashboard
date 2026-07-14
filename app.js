@@ -1343,13 +1343,15 @@ function drawRxCountChart() {
   const top = 24;
   const bottom = 58;
   const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
+  const largestPracticeSent = Math.max(...months.flatMap((month) => stacks.map((stack) => byMonth.get(month)?.get(stack.name) || 0)), 1);
   const tickCount = 4;
-  const tickStep = niceTickStep(Math.max(...monthTotals, 1), tickCount);
-  const max = tickStep * tickCount;
+  const tickStep = niceTickStep(largestPracticeSent, tickCount);
+  const axisMax = tickStep * tickCount;
+  const stackMax = Math.max(...monthTotals, 1);
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "middle";
-  const left = Math.max(72, ctx.measureText(number(max)).width + 22);
+  const left = Math.max(72, ctx.measureText(number(axisMax)).width + 22);
   const chartWidth = width - left - right;
   const chartHeight = height - top - bottom;
 
@@ -1371,7 +1373,7 @@ function drawRxCountChart() {
 
   for (let index = 0; index <= tickCount; index += 1) {
     const value = tickStep * index;
-    const y = top + chartHeight - (value / max) * chartHeight;
+    const y = top + chartHeight - (index / tickCount) * chartHeight;
     ctx.strokeStyle = "#edf1f3";
     ctx.beginPath();
     ctx.moveTo(left, y);
@@ -1389,7 +1391,7 @@ function drawRxCountChart() {
     let y = top + chartHeight;
     stacks.forEach((stack) => {
       const value = byMonth.get(month)?.get(stack.name) || 0;
-      const segmentHeight = (value / max) * chartHeight;
+      const segmentHeight = (value / stackMax) * chartHeight;
       y -= segmentHeight;
       ctx.fillStyle = stack.color;
       ctx.fillRect(x, y, barWidth, segmentHeight);
