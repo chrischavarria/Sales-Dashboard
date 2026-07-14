@@ -1342,9 +1342,9 @@ function drawRxCountChart() {
   const right = 18;
   const top = 24;
   const bottom = 58;
-  const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
+  const largestPracticeSent = Math.max(...months.flatMap((month) => stacks.map((stack) => byMonth.get(month)?.get(stack.name) || 0)), 1);
   const tickCount = 4;
-  const tickStep = niceTickStep(Math.max(...monthTotals, 1), tickCount);
+  const tickStep = niceTickStep(largestPracticeSent, tickCount);
   const axisMax = tickStep * tickCount;
 
   ctx.font = "12px system-ui, sans-serif";
@@ -1386,19 +1386,29 @@ function drawRxCountChart() {
   const barWidth = Math.min(72, slotWidth * 0.62);
   months.forEach((month, monthIndex) => {
     const x = left + slotWidth * monthIndex + (slotWidth - barWidth) / 2;
-    let y = top + chartHeight;
-    stacks.forEach((stack) => {
-      const value = byMonth.get(month)?.get(stack.name) || 0;
+    const monthStacks = stacks
+      .map((stack) => ({ ...stack, value: byMonth.get(month)?.get(stack.name) || 0 }))
+      .filter((stack) => stack.value > 0)
+      .sort((a, b) => b.value - a.value || b.total - a.total || a.name.localeCompare(b.name));
+    monthStacks.forEach((stack) => {
+      const value = stack.value;
       const segmentHeight = (value / axisMax) * chartHeight;
-      y -= segmentHeight;
+      const y = top + chartHeight - segmentHeight;
       ctx.fillStyle = stack.color;
       ctx.fillRect(x, y, barWidth, segmentHeight);
-      if (value > 0 && segmentHeight > 0) {
+    });
+    monthStacks.forEach((stack, stackIndex) => {
+      const value = stack.value;
+      const nextValue = monthStacks[stackIndex + 1]?.value || 0;
+      const y = top + chartHeight - (value / axisMax) * chartHeight;
+      const nextY = top + chartHeight - (nextValue / axisMax) * chartHeight;
+      const visibleHeight = nextY - y;
+      if (visibleHeight > 0) {
         rxCountHoverRegions.push({
           x,
           y,
           width: barWidth,
-          height: Math.max(segmentHeight, 2),
+          height: Math.max(visibleHeight, 2),
           month,
           name: stack.name,
           value,
