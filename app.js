@@ -78,6 +78,7 @@ let state = loadState();
 let supabaseClient = null;
 let cloudReady = false;
 let saveTimer = null;
+let rxCountHoverRegions = [];
 const builderState = {
   apis: new Set(),
   materials: new Set(),
@@ -139,6 +140,7 @@ const els = {
   rxCountChart: document.querySelector("#rxCountChart"),
   rxCountChartNote: document.querySelector("#rxCountChartNote"),
   rxCountLegend: document.querySelector("#rxCountLegend"),
+  rxCountTooltip: document.querySelector("#rxCountTooltip"),
   brandTrendChart: document.querySelector("#brandTrendChart"),
   brandChartNote: document.querySelector("#brandChartNote"),
   clinicChartNote: document.querySelector("#clinicChartNote"),
@@ -1284,6 +1286,15 @@ function rxCountMonthLabel(month) {
   return Number.isNaN(date.getTime()) ? month : new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
 }
 
+function niceTickStep(value, tickCount = 4) {
+  if (!value || value <= 0) return 1;
+  const roughStep = value / tickCount;
+  const power = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / power;
+  const nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  return nice * power;
+}
+
 function rxCountChartData() {
   const allReports = [...(state.rxCountReports || [])].sort((a, b) => a.month.localeCompare(b.month));
   const reports = allReports.slice(-6);
@@ -1319,18 +1330,21 @@ function drawRxCountChart() {
   canvas.style.height = "360px";
   const { ctx, width, height } = resizeCanvas(canvas);
   ctx.clearRect(0, 0, width, height);
+  rxCountHoverRegions = [];
   const { months, stacks, byMonth, totalMonths } = rxCountChartData();
-  const left = 52;
   const right = 18;
   const top = 24;
   const bottom = 58;
-  const chartWidth = width - left - right;
-  const chartHeight = height - top - bottom;
   const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
-  const max = Math.max(...monthTotals, 1);
+  const tickCount = 4;
+  const tickStep = niceTickStep(Math.max(...monthTotals, 1), tickCount);
+  const max = tickStep * tickCount;
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "middle";
+  const left = Math.max(72, ctx.measureText(number(max)).width + 22);
+  const chartWidth = width - left - right;
+  const chartHeight = height - top - bottom;
 
   if (!months.length) {
     ctx.fillStyle = "#6b7280";
@@ -1348,8 +1362,8 @@ function drawRxCountChart() {
   ctx.lineTo(left + chartWidth, top + chartHeight);
   ctx.stroke();
 
-  for (let index = 0; index <= 4; index += 1) {
-    const value = (max * index) / 4;
+  for (let index = 0; index <= tickCount; index += 1) {
+    const value = tickStep * index;
     const y = top + chartHeight - (value / max) * chartHeight;
     ctx.strokeStyle = "#edf1f3";
     ctx.beginPath();
@@ -1372,6 +1386,18 @@ function drawRxCountChart() {
       y -= segmentHeight;
       ctx.fillStyle = stack.color;
       ctx.fillRect(x, y, barWidth, segmentHeight);
+      if (value > 0 && segmentHeight > 0) {
+        rxCountHoverRegions.push({
+          x,
+          y,
+          width: barWidth,
+          height: Math.max(segmentHeight, 2),
+          month,
+          name: stack.name,
+          value,
+          color: stack.color,
+        });
+      }
     });
     ctx.fillStyle = "#6b7280";
     ctx.textAlign = "center";
@@ -1385,6 +1411,47 @@ function drawRxCountChart() {
   els.rxCountLegend.innerHTML = stacks
     .map((stack) => `<span class="legend-item"><i style="background:${stack.color}"></i>${escapeHtml(stack.name)}</span>`)
     .join("");
+}
+
+function hideRxCountTooltip() {
+  els.rxCountTooltip?.classList.remove("visible");
+}
+
+function showRxCountTooltip(event, region) {
+  if (!els.rxCountTooltip) return;
+  const panel = els.rxCountTooltip.closest(".chart-panel");
+  if (!panel) return;
+  const panelRect = panel.getBoundingClientRect();
+  const tooltipWidth = 220;
+  const x = Math.min(event.clientX - panelRect.left + 12, Math.max(8, panelRect.width - tooltipWidth - 8));
+  const y = Math.max(8, event.clientY - panelRect.top + 12);
+  els.rxCountTooltip.innerHTML = `
+    <strong><i style="background:${region.color}"></i>${escapeHtml(region.name)}</strong>
+    <span>${escapeHtml(rxCountMonthLabel(region.month))}</span>
+    <span>${number(region.value)} filled Rx</span>
+  `;
+  els.rxCountTooltip.style.transform = `translate(${x}px, ${y}px)`;
+  els.rxCountTooltip.classList.add("visible");
+}
+
+function handleRxCountHover(event) {
+  const canvas = els.rxCountChart;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const region = [...rxCountHoverRegions].reverse().find((item) => (
+    x >= item.x
+    && x <= item.x + item.width
+    && y >= item.y
+    && y <= item.y + item.height
+  ));
+  canvas.style.cursor = region ? "pointer" : "default";
+  if (!region) {
+    hideRxCountTooltip();
+    return;
+  }
+  showRxCountTooltip(event, region);
 }
 
 function renderBrandTrend(rows) {
@@ -2583,6 +2650,9 @@ els.rxCountForm?.addEventListener("submit", async (event) => {
     els.rxCountStatus.textContent = `Rx count import failed: ${error.message}`;
   }
 });
+
+els.rxCountChart?.addEventListener("mousemove", handleRxCountHover);
+els.rxCountChart?.addEventListener("mouseleave", hideRxCountTooltip);
 
 els.repForm.addEventListener("submit", async (event) => {
   event.preventDefault();

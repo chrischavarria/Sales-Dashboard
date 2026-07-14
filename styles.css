@@ -684,6 +684,10 @@ body:not(.locked) #lockedNotice {
   padding: 18px;
 }
 
+.chart-panel {
+  position: relative;
+}
+
 .chart-grid > :only-child {
   grid-column: 1 / -1;
 }
@@ -715,6 +719,47 @@ canvas {
   width: 12px;
   height: 12px;
   border-radius: 2px;
+}
+
+.chart-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: none;
+  min-width: 180px;
+  max-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(23, 23, 38, 0.14);
+  color: var(--ink);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
+.chart-tooltip.visible {
+  display: grid;
+  gap: 4px;
+}
+
+.chart-tooltip strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--navy);
+}
+
+.chart-tooltip i {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.chart-tooltip span {
+  color: var(--muted);
 }
 
 /* ---------- Tables ---------- */
