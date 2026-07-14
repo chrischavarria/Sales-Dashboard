@@ -1126,7 +1126,7 @@ function renderTables(rows) {
 
   const rxRows = (state.rxCountReports || [])
     .flatMap((report) => report.rows.map((row) => ({ ...row, month: report.month })))
-    .sort((a, b) => b.month.localeCompare(a.month) || b.filled - a.filled);
+    .sort((a, b) => b.month.localeCompare(a.month) || b.sent - a.sent);
   els.rxCountTable.innerHTML = rxRows.length
     ? rxRows
         .map((row) => `<tr>
@@ -1302,7 +1302,7 @@ function rxCountChartData() {
   const practiceTotals = new Map();
   reports.forEach((report) => {
     report.rows.forEach((row) => {
-      practiceTotals.set(row.practiceName, (practiceTotals.get(row.practiceName) || 0) + row.filled);
+      practiceTotals.set(row.practiceName, (practiceTotals.get(row.practiceName) || 0) + row.sent);
     });
   });
   const topPractices = [...practiceTotals.entries()]
@@ -1312,7 +1312,7 @@ function rxCountChartData() {
   const stacks = topPractices.map((name, index) => ({ name, color: rxCountColor(index) }));
   const otherTotal = [...practiceTotals.entries()]
     .filter(([name]) => !topPractices.includes(name))
-    .reduce((total, [, filled]) => total + filled, 0);
+    .reduce((total, [, sent]) => total + sent, 0);
   if (otherTotal > 0) {
     stacks.push({ name: "Other", color: rxCountColor(stacks.length), total: otherTotal });
   }
@@ -1325,7 +1325,7 @@ function rxCountChartData() {
     const monthMap = byMonth.get(report.month);
     report.rows.forEach((row) => {
       const key = topPractices.includes(row.practiceName) ? row.practiceName : "Other";
-      monthMap.set(key, (monthMap.get(key) || 0) + row.filled);
+      monthMap.set(key, (monthMap.get(key) || 0) + row.sent);
     });
   });
   return { months, stacks, byMonth, totalMonths: allReports.length };
@@ -1413,8 +1413,8 @@ function drawRxCountChart() {
   ctx.textAlign = "left";
 
   els.rxCountChartNote.textContent = totalMonths > months.length
-    ? `Latest ${months.length} of ${totalMonths} monthly uploads by filled Rx`
-    : `${months.length} monthly upload${months.length === 1 ? "" : "s"} by filled Rx`;
+    ? `Latest ${months.length} of ${totalMonths} monthly uploads by sent Rx`
+    : `${months.length} monthly upload${months.length === 1 ? "" : "s"} by sent Rx`;
   els.rxCountLegend.innerHTML = stacks
     .map((stack) => `<span class="legend-item"><i style="background:${stack.color}"></i>${escapeHtml(stack.name)}</span>`)
     .join("");
@@ -1435,7 +1435,7 @@ function showRxCountTooltip(event, region) {
   els.rxCountTooltip.innerHTML = `
     <strong><i style="background:${region.color}"></i>${escapeHtml(region.name)}</strong>
     <span>${escapeHtml(rxCountMonthLabel(region.month))}</span>
-    <span>${number(region.value)} filled Rx</span>
+    <span>${number(region.value)} sent Rx</span>
   `;
   els.rxCountTooltip.style.transform = `translate(${x}px, ${y}px)`;
   els.rxCountTooltip.classList.add("visible");
