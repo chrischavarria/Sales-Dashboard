@@ -1310,9 +1310,16 @@ function rxCountChartData() {
     .slice(0, 8)
     .map(([name]) => name);
   const stacks = topPractices.map((name, index) => ({ name, color: rxCountColor(index) }));
-  if ([...practiceTotals.keys()].some((name) => !topPractices.includes(name))) {
-    stacks.unshift({ name: "Other", color: rxCountColor(stacks.length) });
+  const otherTotal = [...practiceTotals.entries()]
+    .filter(([name]) => !topPractices.includes(name))
+    .reduce((total, [, filled]) => total + filled, 0);
+  if (otherTotal > 0) {
+    stacks.push({ name: "Other", color: rxCountColor(stacks.length), total: otherTotal });
   }
+  stacks.forEach((stack) => {
+    stack.total = stack.total ?? practiceTotals.get(stack.name) ?? 0;
+  });
+  stacks.sort((a, b) => a.total - b.total || a.name.localeCompare(b.name));
   const byMonth = new Map(reports.map((report) => [report.month, new Map()]));
   reports.forEach((report) => {
     const monthMap = byMonth.get(report.month);
