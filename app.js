@@ -1342,9 +1342,9 @@ function drawRxCountChart() {
   const right = 18;
   const top = 24;
   const bottom = 58;
-  const largestPracticeSent = Math.max(...months.flatMap((month) => stacks.map((stack) => byMonth.get(month)?.get(stack.name) || 0)), 1);
+  const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
   const tickCount = 4;
-  const tickStep = niceTickStep(largestPracticeSent, tickCount);
+  const tickStep = niceTickStep(Math.max(...monthTotals, 1), tickCount);
   const axisMax = tickStep * tickCount;
 
   ctx.font = "12px system-ui, sans-serif";
@@ -1386,24 +1386,18 @@ function drawRxCountChart() {
   const barWidth = Math.min(72, slotWidth * 0.62);
   months.forEach((month, monthIndex) => {
     const x = left + slotWidth * monthIndex + (slotWidth - barWidth) / 2;
-    const monthStacks = [...stacks].sort((a, b) => {
-      const bValue = byMonth.get(month)?.get(b.name) || 0;
-      const aValue = byMonth.get(month)?.get(a.name) || 0;
-      return bValue - aValue || b.total - a.total || a.name.localeCompare(b.name);
-    });
-    monthStacks.forEach((stack, stackIndex) => {
+    let y = top + chartHeight;
+    stacks.forEach((stack) => {
       const value = byMonth.get(month)?.get(stack.name) || 0;
       const segmentHeight = (value / axisMax) * chartHeight;
-      const layeredWidth = Math.max(14, barWidth - stackIndex * 5);
-      const layeredX = x + (barWidth - layeredWidth) / 2;
-      const y = top + chartHeight - segmentHeight;
+      y -= segmentHeight;
       ctx.fillStyle = stack.color;
-      ctx.fillRect(layeredX, y, layeredWidth, segmentHeight);
+      ctx.fillRect(x, y, barWidth, segmentHeight);
       if (value > 0 && segmentHeight > 0) {
         rxCountHoverRegions.push({
-          x: layeredX,
+          x,
           y,
-          width: layeredWidth,
+          width: barWidth,
           height: Math.max(segmentHeight, 2),
           month,
           name: stack.name,
