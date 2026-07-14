@@ -779,6 +779,85 @@ canvas {
   max-height: 520px;
 }
 
+.rx-count-groups {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rx-count-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rx-count-group summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(120px, auto));
+  gap: 14px;
+  align-items: center;
+  padding: 13px 14px 13px 44px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+  list-style: none;
+}
+
+.rx-count-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.rx-count-group summary::before {
+  content: "+";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rx-count-group summary span:not(:first-child) {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.rx-count-group[open] summary {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.rx-count-group[open] summary::before {
+  content: "-";
+}
+
+.rx-count-group .table-wrap {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+.rx-count-group table {
+  min-width: 420px;
+}
+
+.rx-count-empty {
+  margin-top: 14px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -953,5 +1032,14 @@ tbody tr:last-child td {
   .builder-item {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .rx-count-group summary {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .rx-count-group summary span:not(:first-child) {
+    text-align: left;
   }
 }

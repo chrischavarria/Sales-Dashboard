@@ -1127,16 +1127,50 @@ function renderTables(rows) {
   const rxRows = (state.rxCountReports || [])
     .flatMap((report) => report.rows.map((row) => ({ ...row, month: report.month })))
     .sort((a, b) => b.month.localeCompare(a.month) || b.sent - a.sent);
+  const rxGroups = new Map();
+  rxRows.forEach((row) => {
+    if (!rxGroups.has(row.practiceName)) {
+      rxGroups.set(row.practiceName, { name: row.practiceName, sent: 0, filled: 0, rows: [] });
+    }
+    const group = rxGroups.get(row.practiceName);
+    group.sent += row.sent;
+    group.filled += row.filled;
+    group.rows.push(row);
+  });
   els.rxCountTable.innerHTML = rxRows.length
-    ? rxRows
-        .map((row) => `<tr>
-          <td>${escapeHtml(rxCountMonthLabel(row.month))}</td>
-          <td>${escapeHtml(row.practiceName)}</td>
-          <td class="number">${number(row.sent)}</td>
-          <td class="number">${number(row.filled)}</td>
-        </tr>`)
+    ? [...rxGroups.values()]
+        .sort((a, b) => b.sent - a.sent || a.name.localeCompare(b.name))
+        .map((practice) => {
+          const rowsHtml = practice.rows
+            .sort((a, b) => b.month.localeCompare(a.month))
+            .map((row) => `<tr>
+              <td>${escapeHtml(rxCountMonthLabel(row.month))}</td>
+              <td class="number">${number(row.sent)}</td>
+              <td class="number">${number(row.filled)}</td>
+            </tr>`)
+            .join("");
+          return `<details class="rx-count-group">
+            <summary>
+              <span>${escapeHtml(practice.name)}</span>
+              <span>${number(practice.sent)} sent</span>
+              <span>${number(practice.filled)} filled</span>
+            </summary>
+            <div class="table-wrap compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th class="number">Sent</th>
+                    <th class="number">Filled</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+          </details>`;
+        })
         .join("")
-    : `<tr><td class="empty" colspan="4">Upload monthly Rx Count by Practice CSV files to see counts.</td></tr>`;
+    : `<p class="empty rx-count-empty">Upload monthly Rx Count by Practice CSV files to see counts.</p>`;
 }
 
 function resizeCanvas(canvas) {

@@ -269,6 +269,16 @@
           </div>
         </section>
 
+        <section class="chart-panel">
+          <div class="panel-heading">
+            <h2>Rx Count by Practice</h2>
+            <span id="rxCountChartNote">Monthly sent Rx</span>
+          </div>
+          <canvas id="rxCountChart" height="340"></canvas>
+          <div id="rxCountTooltip" class="chart-tooltip" role="status"></div>
+          <div id="rxCountLegend" class="chart-legend"></div>
+        </section>
+
         <div class="chart-grid">
           <section class="chart-panel">
             <div class="panel-heading">
@@ -283,16 +293,6 @@
               <span id="clinicChartNote"></span>
             </div>
             <canvas id="clinicChart" height="260"></canvas>
-          </section>
-        </div>
-
-        <div class="chart-grid">
-          <section class="chart-panel">
-            <div class="panel-heading">
-              <h2>Sales Rep Commission</h2>
-              <span id="repChartNote"></span>
-            </div>
-            <canvas id="repChart" height="260"></canvas>
           </section>
         </div>
 
@@ -318,34 +318,22 @@
           </div>
         </section>
 
-        <section class="chart-panel">
-          <div class="panel-heading">
-            <h2>Rx Count by Practice</h2>
-            <span id="rxCountChartNote">Monthly sent Rx</span>
-          </div>
-          <canvas id="rxCountChart" height="340"></canvas>
-          <div id="rxCountTooltip" class="chart-tooltip" role="status"></div>
-          <div id="rxCountLegend" class="chart-legend"></div>
-        </section>
+        <div class="chart-grid">
+          <section class="chart-panel">
+            <div class="panel-heading">
+              <h2>Sales Rep Commission</h2>
+              <span id="repChartNote"></span>
+            </div>
+            <canvas id="repChart" height="260"></canvas>
+          </section>
+        </div>
 
         <section class="table-panel">
           <div class="panel-heading">
             <h2>Rx Count Detail</h2>
             <span>Sent and filled by practice</span>
           </div>
-          <div class="table-wrap scroll-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Practice</th>
-                  <th class="number">Sent</th>
-                  <th class="number">Filled</th>
-                </tr>
-              </thead>
-              <tbody id="rxCountTable"></tbody>
-            </table>
-          </div>
+          <div id="rxCountTable" class="rx-count-groups"></div>
         </section>
 
         <div class="chart-grid">
