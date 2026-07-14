@@ -113,6 +113,26 @@
           <p id="uploadStatus" class="status" role="status"></p>
         </form>
 
+        <form id="rxCountForm" class="panel app-private">
+          <div class="panel-heading">
+            <h2>Rx Count by Practice</h2>
+            <span>Monthly CSV</span>
+          </div>
+
+          <label>
+            Month
+            <input id="rxCountMonth" type="month" required>
+          </label>
+
+          <label>
+            Upload Rx count CSV
+            <input id="rxCountFile" type="file" accept=".csv" required>
+          </label>
+
+          <button type="submit">Import Rx Count</button>
+          <p id="rxCountStatus" class="status" role="status"></p>
+        </form>
+
         <form id="repForm" class="panel compact app-private">
           <div class="panel-heading">
             <h2>Sales Reps</h2>
@@ -294,6 +314,35 @@
                 </tr>
               </thead>
               <tbody id="brandTrendTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="chart-panel">
+          <div class="panel-heading">
+            <h2>Rx Count by Practice</h2>
+            <span id="rxCountChartNote">Monthly filled Rx</span>
+          </div>
+          <canvas id="rxCountChart" height="340"></canvas>
+          <div id="rxCountLegend" class="chart-legend"></div>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Rx Count Detail</h2>
+            <span>Sent and filled by practice</span>
+          </div>
+          <div class="table-wrap scroll-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Practice</th>
+                  <th class="number">Sent</th>
+                  <th class="number">Filled</th>
+                </tr>
+              </thead>
+              <tbody id="rxCountTable"></tbody>
             </table>
           </div>
         </section>

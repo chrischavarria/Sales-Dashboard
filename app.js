@@ -103,6 +103,10 @@ const els = {
   repSelect: document.querySelector("#repSelect"),
   fileInput: document.querySelector("#fileInput"),
   uploadStatus: document.querySelector("#uploadStatus"),
+  rxCountForm: document.querySelector("#rxCountForm"),
+  rxCountMonth: document.querySelector("#rxCountMonth"),
+  rxCountFile: document.querySelector("#rxCountFile"),
+  rxCountStatus: document.querySelector("#rxCountStatus"),
   repName: document.querySelector("#repName"),
   repRate: document.querySelector("#repRate"),
   repList: document.querySelector("#repList"),
@@ -132,6 +136,9 @@ const els = {
   brandChart: document.querySelector("#brandChart"),
   clinicChart: document.querySelector("#clinicChart"),
   repChart: document.querySelector("#repChart"),
+  rxCountChart: document.querySelector("#rxCountChart"),
+  rxCountChartNote: document.querySelector("#rxCountChartNote"),
+  rxCountLegend: document.querySelector("#rxCountLegend"),
   brandTrendChart: document.querySelector("#brandTrendChart"),
   brandChartNote: document.querySelector("#brandChartNote"),
   clinicChartNote: document.querySelector("#clinicChartNote"),
@@ -143,6 +150,7 @@ const els = {
   brandTable: document.querySelector("#brandTable"),
   clinicTable: document.querySelector("#clinicTable"),
   repTable: document.querySelector("#repTable"),
+  rxCountTable: document.querySelector("#rxCountTable"),
   drugTable: document.querySelector("#drugTable"),
   historyTable: document.querySelector("#historyTable"),
   sampleBtn: document.querySelector("#sampleBtn"),
@@ -252,6 +260,7 @@ function loadState(sourceState) {
     apiCosts: [],
     skuCosts: [],
     materialCosts: [],
+    rxCountReports: [],
     cogs: {
       assumptions: { ...DEFAULT_COGS_ASSUMPTIONS },
       inventory: [],
@@ -354,6 +363,7 @@ function loadState(sourceState) {
       apiCosts: Array.isArray(parsed.apiCosts) ? parsed.apiCosts : [],
       skuCosts: Array.isArray(parsed.skuCosts) ? parsed.skuCosts : [],
       materialCosts: Array.isArray(parsed.materialCosts) ? parsed.materialCosts : [],
+      rxCountReports: Array.isArray(parsed.rxCountReports) ? parsed.rxCountReports : [],
       cogs: {
         assumptions: normalizeSavedAssumptions(parsed.cogs?.assumptions),
         inventory: Array.isArray(parsed.cogs?.inventory) ? parsed.cogs.inventory : [],
@@ -716,6 +726,21 @@ function parseCsv(text) {
   return rows
     .filter((items) => items.some((item) => String(item).trim()))
     .map((items) => Object.fromEntries(headers.map((header, index) => [header, items[index] ?? ""])));
+}
+
+function normalizeRxCountRows(rows) {
+  return rows.flatMap((row) => {
+    const practiceKey = findColumn(row, ["Practice Name", "Practice", "Clinic", "Brand", "Account"]);
+    const sentKey = findColumn(row, ["Total Rx's Sent", "Total Rxs Sent", "Rx Sent", "Sent"]);
+    const filledKey = findColumn(row, ["Total Rx's Filled", "Total Rxs Filled", "Rx Filled", "Filled"]);
+    const practiceName = String(row[practiceKey] || "").trim();
+    if (!practiceName) return [];
+    return [{
+      practiceName,
+      sent: parseAmount(row[sentKey]),
+      filled: parseAmount(row[filledKey]),
+    }];
+  });
 }
 
 async function readFile(file) {
@@ -1096,6 +1121,20 @@ function renderTables(rows) {
         })
         .join("")
     : `<tr><td class="empty" colspan="10">No report history yet.</td></tr>`;
+
+  const rxRows = (state.rxCountReports || [])
+    .flatMap((report) => report.rows.map((row) => ({ ...row, month: report.month })))
+    .sort((a, b) => b.month.localeCompare(a.month) || b.filled - a.filled);
+  els.rxCountTable.innerHTML = rxRows.length
+    ? rxRows
+        .map((row) => `<tr>
+          <td>${escapeHtml(rxCountMonthLabel(row.month))}</td>
+          <td>${escapeHtml(row.practiceName)}</td>
+          <td class="number">${number(row.sent)}</td>
+          <td class="number">${number(row.filled)}</td>
+        </tr>`)
+        .join("")
+    : `<tr><td class="empty" colspan="4">Upload monthly Rx Count by Practice CSV files to see counts.</td></tr>`;
 }
 
 function resizeCanvas(canvas) {
@@ -1233,6 +1272,118 @@ function drawTrendChart(canvas, months, brandSeries) {
   });
 }
 
+function rxCountColor(index) {
+  const colors = ["#70b7ea", "#3f8fd9", "#f58220", "#ffd966", "#62767e", "#a9b6b8", "#e84d2a", "#6b9071", "#8f4f7f"];
+  return colors[index % colors.length];
+}
+
+function rxCountMonthLabel(month) {
+  if (!month) return "Unknown";
+  const [year, monthNumber] = month.split("-");
+  const date = new Date(Number(year), Number(monthNumber) - 1, 1);
+  return Number.isNaN(date.getTime()) ? month : new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
+}
+
+function rxCountChartData() {
+  const reports = [...(state.rxCountReports || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const months = reports.map((report) => report.month);
+  const practiceTotals = new Map();
+  reports.forEach((report) => {
+    report.rows.forEach((row) => {
+      practiceTotals.set(row.practiceName, (practiceTotals.get(row.practiceName) || 0) + row.filled);
+    });
+  });
+  const topPractices = [...practiceTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name]) => name);
+  const stacks = topPractices.map((name, index) => ({ name, color: rxCountColor(index) }));
+  if ([...practiceTotals.keys()].some((name) => !topPractices.includes(name))) {
+    stacks.push({ name: "Other", color: rxCountColor(stacks.length) });
+  }
+  const byMonth = new Map(reports.map((report) => [report.month, new Map()]));
+  reports.forEach((report) => {
+    const monthMap = byMonth.get(report.month);
+    report.rows.forEach((row) => {
+      const key = topPractices.includes(row.practiceName) ? row.practiceName : "Other";
+      monthMap.set(key, (monthMap.get(key) || 0) + row.filled);
+    });
+  });
+  return { months, stacks, byMonth };
+}
+
+function drawRxCountChart() {
+  const canvas = els.rxCountChart;
+  if (!canvas) return;
+  canvas.style.height = "360px";
+  const { ctx, width, height } = resizeCanvas(canvas);
+  ctx.clearRect(0, 0, width, height);
+  const { months, stacks, byMonth } = rxCountChartData();
+  const left = 52;
+  const right = 18;
+  const top = 24;
+  const bottom = 58;
+  const chartWidth = width - left - right;
+  const chartHeight = height - top - bottom;
+  const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
+  const max = Math.max(...monthTotals, 1);
+
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+
+  if (!months.length) {
+    ctx.fillStyle = "#6b7280";
+    ctx.fillText("Upload a monthly Rx Count by Practice CSV to see this chart.", 16, 32);
+    els.rxCountChartNote.textContent = "No Rx count uploads";
+    els.rxCountLegend.innerHTML = "";
+    return;
+  }
+
+  ctx.strokeStyle = "#d8dee4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, top + chartHeight);
+  ctx.lineTo(left + chartWidth, top + chartHeight);
+  ctx.stroke();
+
+  for (let index = 0; index <= 4; index += 1) {
+    const value = (max * index) / 4;
+    const y = top + chartHeight - (value / max) * chartHeight;
+    ctx.strokeStyle = "#edf1f3";
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(left + chartWidth, y);
+    ctx.stroke();
+    ctx.fillStyle = "#6b7280";
+    ctx.textAlign = "right";
+    ctx.fillText(number(value), left - 8, y);
+  }
+
+  const slotWidth = chartWidth / Math.max(months.length, 1);
+  const barWidth = Math.min(72, slotWidth * 0.62);
+  months.forEach((month, monthIndex) => {
+    const x = left + slotWidth * monthIndex + (slotWidth - barWidth) / 2;
+    let y = top + chartHeight;
+    stacks.forEach((stack) => {
+      const value = byMonth.get(month)?.get(stack.name) || 0;
+      const segmentHeight = (value / max) * chartHeight;
+      y -= segmentHeight;
+      ctx.fillStyle = stack.color;
+      ctx.fillRect(x, y, barWidth, segmentHeight);
+    });
+    ctx.fillStyle = "#6b7280";
+    ctx.textAlign = "center";
+    ctx.fillText(rxCountMonthLabel(month), x + barWidth / 2, top + chartHeight + 24);
+  });
+  ctx.textAlign = "left";
+
+  els.rxCountChartNote.textContent = `${months.length} monthly upload${months.length === 1 ? "" : "s"} by filled Rx`;
+  els.rxCountLegend.innerHTML = stacks
+    .map((stack) => `<span class="legend-item"><i style="background:${stack.color}"></i>${escapeHtml(stack.name)}</span>`)
+    .join("");
+}
+
 function renderBrandTrend(rows) {
   const brandRows = rows.filter((row) => row.brandId !== NO_BRAND);
   const monthSet = new Set(brandRows.map((row) => monthKey(row.startDate)));
@@ -1292,6 +1443,7 @@ function renderCharts(rows) {
   drawBarChart(els.clinicChart, clinicItems, "revenue", "#6b9071");
   drawBarChart(els.repChart, repItems, "commission", "#211f54");
   renderBrandTrend(rows);
+  drawRxCountChart();
 }
 
 function renderCostTables() {
@@ -2397,6 +2549,36 @@ els.fileInput.addEventListener("change", () => {
   const file = els.fileInput.files[0];
   if (!file) return;
   els.reportName.value = file.name.replace(/\.(csv|xlsx|xls)$/i, "");
+});
+
+els.rxCountForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = els.rxCountFile.files[0];
+  const month = els.rxCountMonth.value;
+  if (!file || !month) return;
+
+  try {
+    if (!(await requireCloudReady(els.rxCountStatus))) return;
+    const rows = normalizeRxCountRows(parseCsv(await file.text()));
+    if (!rows.length) {
+      els.rxCountStatus.textContent = "No practice rows were found in that CSV.";
+      return;
+    }
+    state.rxCountReports = (state.rxCountReports || []).filter((report) => report.month !== month);
+    state.rxCountReports.push({
+      id: crypto.randomUUID(),
+      month,
+      fileName: file.name,
+      uploadedAt: new Date().toISOString(),
+      rows,
+    });
+    render();
+    if (cloudReady) await saveCloudState();
+    els.rxCountStatus.textContent = `Imported ${rows.length} practices for ${rxCountMonthLabel(month)}.`;
+    els.rxCountForm.reset();
+  } catch (error) {
+    els.rxCountStatus.textContent = `Rx count import failed: ${error.message}`;
+  }
 });
 
 els.repForm.addEventListener("submit", async (event) => {
