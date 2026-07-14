@@ -1311,7 +1311,7 @@ function rxCountChartData() {
     .map(([name]) => name);
   const stacks = topPractices.map((name, index) => ({ name, color: rxCountColor(index) }));
   if ([...practiceTotals.keys()].some((name) => !topPractices.includes(name))) {
-    stacks.push({ name: "Other", color: rxCountColor(stacks.length) });
+    stacks.unshift({ name: "Other", color: rxCountColor(stacks.length) });
   }
   const byMonth = new Map(reports.map((report) => [report.month, new Map()]));
   reports.forEach((report) => {
