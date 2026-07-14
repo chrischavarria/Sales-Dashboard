@@ -1285,7 +1285,8 @@ function rxCountMonthLabel(month) {
 }
 
 function rxCountChartData() {
-  const reports = [...(state.rxCountReports || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const allReports = [...(state.rxCountReports || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const reports = allReports.slice(-6);
   const months = reports.map((report) => report.month);
   const practiceTotals = new Map();
   reports.forEach((report) => {
@@ -1309,7 +1310,7 @@ function rxCountChartData() {
       monthMap.set(key, (monthMap.get(key) || 0) + row.filled);
     });
   });
-  return { months, stacks, byMonth };
+  return { months, stacks, byMonth, totalMonths: allReports.length };
 }
 
 function drawRxCountChart() {
@@ -1318,7 +1319,7 @@ function drawRxCountChart() {
   canvas.style.height = "360px";
   const { ctx, width, height } = resizeCanvas(canvas);
   ctx.clearRect(0, 0, width, height);
-  const { months, stacks, byMonth } = rxCountChartData();
+  const { months, stacks, byMonth, totalMonths } = rxCountChartData();
   const left = 52;
   const right = 18;
   const top = 24;
@@ -1378,7 +1379,9 @@ function drawRxCountChart() {
   });
   ctx.textAlign = "left";
 
-  els.rxCountChartNote.textContent = `${months.length} monthly upload${months.length === 1 ? "" : "s"} by filled Rx`;
+  els.rxCountChartNote.textContent = totalMonths > months.length
+    ? `Latest ${months.length} of ${totalMonths} monthly uploads by filled Rx`
+    : `${months.length} monthly upload${months.length === 1 ? "" : "s"} by filled Rx`;
   els.rxCountLegend.innerHTML = stacks
     .map((stack) => `<span class="legend-item"><i style="background:${stack.color}"></i>${escapeHtml(stack.name)}</span>`)
     .join("");
