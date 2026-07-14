@@ -1342,12 +1342,10 @@ function drawRxCountChart() {
   const right = 18;
   const top = 24;
   const bottom = 58;
-  const monthTotals = months.map((month) => stacks.reduce((total, stack) => total + (byMonth.get(month)?.get(stack.name) || 0), 0));
   const largestPracticeSent = Math.max(...months.flatMap((month) => stacks.map((stack) => byMonth.get(month)?.get(stack.name) || 0)), 1);
   const tickCount = 4;
   const tickStep = niceTickStep(largestPracticeSent, tickCount);
   const axisMax = tickStep * tickCount;
-  const stackMax = Math.max(...monthTotals, 1);
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "middle";
@@ -1388,18 +1386,24 @@ function drawRxCountChart() {
   const barWidth = Math.min(72, slotWidth * 0.62);
   months.forEach((month, monthIndex) => {
     const x = left + slotWidth * monthIndex + (slotWidth - barWidth) / 2;
-    let y = top + chartHeight;
-    stacks.forEach((stack) => {
+    const monthStacks = [...stacks].sort((a, b) => {
+      const bValue = byMonth.get(month)?.get(b.name) || 0;
+      const aValue = byMonth.get(month)?.get(a.name) || 0;
+      return bValue - aValue || b.total - a.total || a.name.localeCompare(b.name);
+    });
+    monthStacks.forEach((stack, stackIndex) => {
       const value = byMonth.get(month)?.get(stack.name) || 0;
-      const segmentHeight = (value / stackMax) * chartHeight;
-      y -= segmentHeight;
+      const segmentHeight = (value / axisMax) * chartHeight;
+      const layeredWidth = Math.max(14, barWidth - stackIndex * 5);
+      const layeredX = x + (barWidth - layeredWidth) / 2;
+      const y = top + chartHeight - segmentHeight;
       ctx.fillStyle = stack.color;
-      ctx.fillRect(x, y, barWidth, segmentHeight);
+      ctx.fillRect(layeredX, y, layeredWidth, segmentHeight);
       if (value > 0 && segmentHeight > 0) {
         rxCountHoverRegions.push({
-          x,
+          x: layeredX,
           y,
-          width: barWidth,
+          width: layeredWidth,
           height: Math.max(segmentHeight, 2),
           month,
           name: stack.name,
